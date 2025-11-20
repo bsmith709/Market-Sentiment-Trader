@@ -1,2 +1,2 @@
 # Market-Sentiment-Trader
-A full-stack web app research tool designed to evaluate the predictive power of market sentiment.
+An interactive research tool designed to evaluate the predictive power of market sentiment. The application ingests historical financial news and social media posts, processes them using the FinBERT NLP model to generate "Analyst" and "Hype" sentiment scores, and links them to historical stock prices. Users can build custom trading algorithms based on these sentiment metrics (e.g., "Buy when Hype is High") and run historical simulations to visualize potential profitability and win rates against the market.
