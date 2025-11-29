@@ -54,6 +54,10 @@ print("Cleaning titles and bodies...")
 df['title'] = df['title'].apply(clean_text)
 df['body'] = df['body'].apply(clean_text)
 
+# Remove rows where the title became empty (or was NaN)
+# checks for empty strings "" or real NaNs
+df = df[df['title'].str.strip().astype(bool)]
+
 # Rename Columns to match MySQL Table
 df = df.rename(columns={
     'id': 'post_id',
