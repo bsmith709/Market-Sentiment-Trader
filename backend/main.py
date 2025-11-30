@@ -194,7 +194,70 @@ def get_stock_detail(ticker: str, db: Session = Depends(database.get_db)):
     stock = db.query(models.Stock).filter(models.Stock.ticker == ticker).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
-    return stock
+    
+    # Fetch All Raw Data (Prices, News, Reddit) associated with this ticker
+    prices = db.query(models.StockPrice).filter(models.StockPrice.ticker == ticker).all()
+    
+    news_mentions = db.query(models.NewsSentiment).join(models.NewsArticle)\
+        .filter(models.NewsSentiment.ticker == ticker).all()
+        
+    reddit_mentions = db.query(models.RedditSentiment).join(models.RedditPost)\
+        .filter(models.RedditSentiment.ticker == ticker).all()
+    
+    history_map = {}
+    
+    # -- Bucket Prices --
+    for p in prices:
+        d = p.date
+        if d not in history_map:
+            history_map[d] = {"price": None, "volume": 0, "news": [], "reddit": []}
+        
+        history_map[d]["price"] = p.close_price
+        history_map[d]["volume"] = p.volume
+
+    # -- Bucket News Mentions --
+    for n in news_mentions:
+        d = n.article.date # We need the date from the joined Article table
+        # We allow news on days without price (e.g., weekends)
+        if d not in history_map:
+             history_map[d] = {"price": None, "volume": 0, "news": [], "reddit": []}
+        history_map[d]["news"].append(n)
+
+    # -- Bucket Reddit Mentions --
+    for r in reddit_mentions:
+        d = r.post.date # Date from joined Post table
+        if d not in history_map:
+             history_map[d] = {"price": None, "volume": 0, "news": [], "reddit": []}
+        history_map[d]["reddit"].append(r)
+    
+    history_list = []
+
+    # Sort dates so the graph is chronological
+    sorted_dates = sorted(history_map.keys())
+    for d in sorted_dates:
+        day_data = history_map[d]
+        
+        # Use existing helper to calculate daily scores
+        n_score = calculate_hype_score(day_data["news"])
+        r_score = calculate_hype_score(day_data["reddit"])
+
+        # Create the schema object
+        point = schemas.DailyStockStats(
+            date=d,
+            close_price=day_data["price"],
+            daily_volume=day_data["volume"],
+            news_hype_score=n_score,
+            reddit_hype_score=r_score
+        )
+        history_list.append(point)
+
+    # Attach to Stock object
+    return schemas.StockDetailWithHistory(
+        ticker=stock.ticker,
+        company_name=stock.company_name,
+        sector=stock.sector,
+        history=history_list
+    )
 
 # --- STRATEGY & BACKTEST ROUTES ---
 

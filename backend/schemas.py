@@ -92,14 +92,23 @@ class StockDashboardRow(BaseModel):
     class Config:
         from_attributes = True
 
+# New Schema for a single point on your graph (One Day)
+class DailyStockStats(BaseModel):
+    date: date
+    close_price: Optional[float] = None
+    daily_volume: Optional[int] = None
+    news_hype_score: float = 0.5   # Default neutral
+    reddit_hype_score: float = 0.5 # Default neutral
+
+    class Config:
+        from_attributes = True
+
 class StockDetailWithHistory(BaseModel):
     ticker: str
     company_name: str
     sector: Optional[str]
     # Include data for the dashboard charts
-    prices: List[StockPriceOut] = []
-    news_mentions: List[NewsMentionOut] = []
-    reddit_mentions: List[RedditMentionOut] = []
+    history: List[DailyStockStats] = []
     
     class Config:
         from_attributes = True
