@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, field_validator, model_validator
 from typing import List, Optional, Dict, Any
 from datetime import date, datetime
 from enum import Enum
@@ -121,10 +121,65 @@ class SentimentOut(BaseModel):
         from_attributes = True
 
 # --- STRATEGY & BACKTEST SCHEMAS ---
+class StrategyRule(BaseModel):
+    ticker: str
+    news_buy_threshold: Optional[float] = None
+    news_sell_threshold: Optional[float] = None
+    
+    reddit_buy_threshold: Optional[float] = None
+    reddit_sell_threshold: Optional[float] = None
+
+    # Validator: Check Ranges (0 to 1) only if value is provided
+    @field_validator('news_buy_threshold', 'news_sell_threshold', 
+                     'reddit_buy_threshold', 'reddit_sell_threshold')
+    @classmethod
+    def check_range(cls, v: Optional[float]):
+        if v is not None and not (0.0 <= v <= 1.0):
+            raise ValueError('Thresholds must be between 0.0 and 1.0')
+        return v
+
+    # Validator: Logic Check (Prevent "Do Nothing" rules)
+    @model_validator(mode='after')
+    def check_at_least_one_trigger(self):
+        # A rule must have at least one BUY trigger
+        if self.news_buy_threshold is None and self.reddit_buy_threshold is None:
+            raise ValueError(f"Ticker {self.ticker}: You must set at least one BUY threshold (News or Reddit).")
+        
+        # A rule must have at least one SELL trigger
+        if self.news_sell_threshold is None and self.reddit_sell_threshold is None:
+            raise ValueError(f"Ticker {self.ticker}: You must set at least one SELL threshold (News or Reddit).")
+        
+        return self
+
+    # Prevent Overlapping Buy/Sell Thresholds
+    @model_validator(mode='after')
+    def check_logical_consistency(self):
+        # Check Reddit Overlap
+        if (self.reddit_buy_threshold is not None and 
+            self.reddit_sell_threshold is not None):
+            
+            if self.reddit_buy_threshold <= self.reddit_sell_threshold:
+                raise ValueError(
+                    f"Ticker {self.ticker}: Reddit Buy Threshold ({self.reddit_buy_threshold}) "
+                    f"must be higher than Sell Threshold ({self.reddit_sell_threshold}) "
+                    "to prevent infinite trading loops."
+                )
+
+        # Check News Overlap
+        if (self.news_buy_threshold is not None and 
+            self.news_sell_threshold is not None):
+            
+            if self.news_buy_threshold <= self.news_sell_threshold:
+                raise ValueError(
+                    f"Ticker {self.ticker}: News Buy Threshold ({self.news_buy_threshold}) "
+                    f"must be higher than Sell Threshold ({self.news_sell_threshold}) "
+                    "to prevent infinite trading loops."
+                )
+
 class StrategyBase(BaseModel):
     name: str
-    buy_rules_json: Dict[str, Any] 
-    sell_rules_json: Dict[str, Any]
+    description: Optional[str] = None
+    rules: List[StrategyRule]
 
 class StrategyCreate(StrategyBase):
     pass

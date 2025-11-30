@@ -267,7 +267,41 @@ def create_strategy(
     current_user: models.User = Depends(get_current_user), 
     db: Session = Depends(database.get_db)
 ):
-    new_strategy = models.Strategy(**strategy.dict(), user_id=current_user.user_id)
+    
+    # --- VALIDATION ---
+
+    # Extract tickers from the request
+    requested_tickers = {rule.ticker for rule in strategy.rules}
+    
+    # Query DB to find which of these actually exist
+    valid_stocks = db.query(models.Stock.ticker)\
+        .filter(models.Stock.ticker.in_(requested_tickers))\
+        .all()
+    
+    # Flatten list of tuples [('AAPL',), ('TSLA',)] -> {'AAPL', 'TSLA'}
+    valid_tickers_set = {s[0] for s in valid_stocks}
+    
+    # Find the difference
+    invalid_tickers = requested_tickers - valid_tickers_set
+    
+    if invalid_tickers:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"The following tickers do not exist in the database: {invalid_tickers}"
+        )
+        
+    # --- END VALIDATION ---
+
+
+    # Convert Pydantic list of rules -> JSON-compatible list of dicts
+    rules_data = [rule.dict() for rule in strategy.rules]
+
+    new_strategy = models.Strategy(
+        user_id=current_user.user_id,
+        name=strategy.name,
+        description=strategy.description,
+        rules=rules_data, # Store everything here
+    )
     db.add(new_strategy)
     db.commit()
     db.refresh(new_strategy)

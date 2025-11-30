@@ -73,8 +73,8 @@ CREATE TABLE strategies (
     strategy_id SERIAL PRIMARY KEY,
     user_id INT NOT NULL REFERENCES users(user_id),
     name VARCHAR(100) NOT NULL,
-    buy_rules_json JSONB, -- JSONB is binary JSON (Faster & Indexable)
-    sell_rules_json JSONB,
+    description TEXT,
+    rules JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

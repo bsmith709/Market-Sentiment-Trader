@@ -121,10 +121,10 @@ class Strategy(Base):
     strategy_id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
     name = Column(String, nullable=False)
+    description = Column(String, nullable=True)
     
     # JSONB is crucial for storing flexible rules
-    buy_rules_json = Column(JSONB)
-    sell_rules_json = Column(JSONB)
+    rules = Column(JSONB)
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
     owner = relationship("User", back_populates="strategies")
