@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
-from datetime import timedelta, datetime
+from datetime import timedelta, date, datetime
 from typing import List
 import bcrypt
 import models, schemas, database
@@ -31,7 +31,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 # --- UTILITIES (AUTH) ---
 def verify_password(plain_password, hashed_password):
     plain_password_bytes = plain_password.encode('utf-8')
-    hashed_password_bytes = plain_password.encode('utf-8')
+    hashed_password_bytes = hashed_password.encode('utf-8')
     return bcrypt.checkpw(plain_password_bytes, hashed_password_bytes)
 
 def get_password_hash(password):
@@ -50,6 +50,32 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# --- UTILITIES (HYPE SCORE CALCULATION) ---
+def calculate_hype_score(mentions) -> float:
+    if not mentions:
+        return 0.5 # Default to Neutral if no news
+    
+    total_weighted_score = 0.0
+    total_confidence = 0.0
+    
+    for m in mentions:
+        # Assign Weight
+        if m.sentiment_label == models.SentimentType.positive:
+            weight = 1.0
+        elif m.sentiment_label == models.SentimentType.neutral:
+            weight = 0.5
+        else: # negative
+            weight = 0.0
+            
+        # Math
+        total_weighted_score += (weight * float(m.confidence_score))
+        total_confidence += float(m.confidence_score)
+        
+    if total_confidence == 0:
+        return 0.5
+        
+    return total_weighted_score / total_confidence
+
 # Dependency: Get Current User
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
     credentials_exception = HTTPException(
@@ -59,13 +85,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        username: str = payload.get("sub")
+        if username is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
     
-    user = db.query(models.User).filter(models.User.email == email).first()
+    user = db.query(models.User).filter(models.User.username == username).first()
     if user is None:
         raise credentials_exception
     return user
@@ -75,13 +101,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 @app.post("/register", response_model=schemas.UserOut)
 def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     # Check if user exists
-    db_user = db.query(models.User).filter(models.User.email == user.email).first()
+    db_user = db.query(models.User).filter(models.User.username == user.username).first()
     if db_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        raise HTTPException(status_code=400, detail="username already registered")
     
     # Create new user
     hashed_password = get_password_hash(user.password)
-    new_user = models.User(email=user.email, password_hash=hashed_password)
+    new_user = models.User(username=user.username, password_hash=hashed_password)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -90,7 +116,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(database.get_d
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     # Verify user
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
+    user = db.query(models.User).filter(models.User.username == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -101,30 +127,73 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     # Create Token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
 # --- TICKER DASHBOARD ROUTES ---
 
-@app.get("/stocks", response_model=List[schemas.StockDetailOut])
-def get_all_stocks(db: Session = Depends(database.get_db)):
-    # Returns just the list of stocks, keeping it light
-    stocks = db.query(models.Stock).all()
-    return stocks
+@app.get("/stocks", response_model=List[schemas.StockDashboardRow])
+def get_dashboard_stocks(
+    sim_date: date, # User MUST provide a date (e.g., ?sim_date=2023-01-01)
+    db: Session = Depends(database.get_db)
+):
+    # This SQL query says:
+    # "Give me the stock info AND the price info WHERE date = sim_date"
+    # It returns exactly 18 rows. Lightning fast.
+    stocks = db.query(
+        models.Stock.ticker,
+        models.Stock.company_name,
+        models.Stock.sector,
+        models.StockPrice.open_price.label("daily_open"),
+        models.StockPrice.close_price.label("daily_close"),
+        models.StockPrice.volume.label("daily_volume")
+    ).join(models.StockPrice)\
+     .filter(models.StockPrice.date == sim_date)\
+     .all()
+    
+    # Get ALL mentions for this day
+    news = db.query(models.NewsSentiment).join(models.NewsArticle)\
+             .filter(models.NewsArticle.date == sim_date).all()
+    reddit = db.query(models.RedditSentiment).join(models.RedditPost)\
+             .filter(models.RedditPost.date == sim_date).all()
+    
+    news_map = {}
+    reddit_map = {}
 
-@app.get("/stocks/{ticker}", response_model=schemas.StockDetailOut)
+    for n in news:
+        news_map.setdefault(n.ticker, []).append(n)
+    for r in reddit:
+        reddit_map.setdefault(r.ticker, []).append(r)
+
+    response_list = []
+
+    for s in stocks:
+        # Calculate scores
+        n_score = calculate_hype_score(news_map.get(s.ticker, []))
+        r_score = calculate_hype_score(reddit_map.get(s.ticker, []))
+
+        # Create Schema Object manually
+        row = schemas.StockDashboardRow(
+            ticker=s.ticker,
+            company_name=s.company_name,
+            sector=s.sector,
+            daily_open=s.daily_open,
+            daily_close=s.daily_close,
+            daily_volume=s.daily_volume,
+            reddit_hype_score=r_score,
+            news_hype_score=n_score
+        )
+        response_list.append(row)
+
+    return response_list
+
+@app.get("/stocks/{ticker}", response_model=schemas.StockDetailWithHistory)
 def get_stock_detail(ticker: str, db: Session = Depends(database.get_db)):
-    # Using joinedload for efficiency if we wanted to pull prices in one query
-    # Limiting prices to last 30 entries to keep payload small for the dashboard
+    # Fetch the stock
     stock = db.query(models.Stock).filter(models.Stock.ticker == ticker).first()
     if not stock:
         raise HTTPException(status_code=404, detail="Stock not found")
-    
-    # Manually slicing prices to get only recent ones for the chart
-    # (Assuming stock.prices is a list - in production you'd query the Price table directly with a limit)
-    stock.recent_prices = stock.prices[-30:] if stock.prices else []
-    
     return stock
 
 # --- STRATEGY & BACKTEST ROUTES ---

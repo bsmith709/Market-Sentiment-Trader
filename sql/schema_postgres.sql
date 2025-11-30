@@ -63,7 +63,7 @@ CREATE TABLE reddit_sentiment_mentions (
 -- 7. USERS
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
-    email VARCHAR(255) UNIQUE NOT NULL,
+    username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
