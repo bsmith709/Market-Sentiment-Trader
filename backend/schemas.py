@@ -180,6 +180,15 @@ class StrategyBase(BaseModel):
     name: str
     description: Optional[str] = None
     rules: List[StrategyRule]
+    
+    # Validator: Unique Tickers
+    @field_validator('rules')
+    @classmethod
+    def check_duplicate_tickers(cls, rules: List[StrategyRule]):
+        tickers = [r.ticker for r in rules]
+        if len(tickers) != len(set(tickers)):
+            raise ValueError('Duplicate tickers found. Only one rule per stock allowed.')
+        return rules
 
 class StrategyCreate(StrategyBase):
     pass

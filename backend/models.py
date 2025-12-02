@@ -35,8 +35,11 @@ class Stock(Base):
 
     # Relationships
     prices = relationship("StockPrice", back_populates="stock")
+    dividends = relationship("Dividend", back_populates="stock")
+    splits = relationship("StockSplit", back_populates="stock")
     news_mentions = relationship("NewsSentiment", back_populates="stock")
     reddit_mentions = relationship("RedditSentiment", back_populates="stock")
+    daily_scores = relationship("DailySentimentScore", back_populates="stock")
 
 class StockPrice(Base):
     __tablename__ = "stock_prices"
@@ -49,6 +52,29 @@ class StockPrice(Base):
     volume = Column(Integer)
 
     stock = relationship("Stock", back_populates="prices")
+
+class Dividend(Base):
+    __tablename__ = "dividends"
+    dividend_id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String, ForeignKey("stocks.ticker"), nullable=False)
+    ex_date = Column(Date, nullable=False)
+    amount = Column(Numeric(10, 4), nullable=False)
+
+    stock = relationship("Stock", back_populates="dividends")
+
+class StockSplit(Base):
+    __tablename__ = "stock_splits"
+    split_id = Column(Integer, primary_key=True, index=True)
+    ticker = Column(String, ForeignKey("stocks.ticker"), nullable=False)
+    date = Column(Date, nullable=False)
+    ratio = Column(Numeric(10, 4), nullable=False)
+
+    stock = relationship("Stock", back_populates="splits")
+
+class MarketHoliday(Base):
+    __tablename__ = "market_holidays"
+    date = Column(Date, primary_key=True)
+    name = Column(String)
 
 class NewsArticle(Base):
     __tablename__ = "news_articles"
@@ -101,6 +127,15 @@ class RedditSentiment(Base):
     stock = relationship("Stock", back_populates="reddit_mentions")
     post = relationship("RedditPost", back_populates="mentions")
 
+class DailySentimentScore(Base):
+    __tablename__ = "daily_sentiment_aggregates"
+    ticker = Column(String, ForeignKey("stocks.ticker"), primary_key=True)
+    date = Column(Date, primary_key=True)
+    news_score = Column(Numeric(5, 4))
+    reddit_score = Column(Numeric(5, 4))
+    
+    stock = relationship("Stock", back_populates="daily_scores")
+
 # ==========================================
 # GROUP C: APP LOGIC (USERS & BACKTESTS)
 # ==========================================
@@ -114,6 +149,7 @@ class User(Base):
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
     strategies = relationship("Strategy", back_populates="owner")
+    leaderboard_entries = relationship("LeaderboardEntry", back_populates="user")
 
 class Strategy(Base):
     __tablename__ = "strategies"
@@ -129,6 +165,7 @@ class Strategy(Base):
 
     owner = relationship("User", back_populates="strategies")
     jobs = relationship("BacktestJob", back_populates="strategy")
+    leaderboard_entries = relationship("LeaderboardEntry", back_populates="strategy")
 
 class BacktestJob(Base):
     __tablename__ = "backtest_jobs"
@@ -153,6 +190,7 @@ class BacktestResult(Base):
 
     job = relationship("BacktestJob", back_populates="result")
     trades = relationship("TradeLog", back_populates="result")
+    leaderboard_entry = relationship("LeaderboardEntry", back_populates="backtest", uselist=False)
 
 class TradeLog(Base):
     __tablename__ = "trade_logs"
@@ -167,3 +205,17 @@ class TradeLog(Base):
     profit = Column(Numeric(14, 2), nullable=True)
 
     result = relationship("BacktestResult", back_populates="trades")
+
+class LeaderboardEntry(Base):
+    __tablename__ = "leaderboard"
+    entry_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    strategy_id = Column(Integer, ForeignKey("strategies.strategy_id"), nullable=False)
+    backtest_id = Column(Integer, ForeignKey("backtest_results.result_id"), nullable=False)
+    
+    total_return_pct = Column(Numeric(10, 2), nullable=False)
+    rank_date = Column(Date, server_default=text("CURRENT_DATE"))
+
+    user = relationship("User", back_populates="leaderboard_entries")
+    strategy = relationship("Strategy", back_populates="leaderboard_entries")
+    backtest = relationship("BacktestResult", back_populates="leaderboard_entry")

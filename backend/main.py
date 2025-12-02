@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 from datetime import timedelta, date, datetime
 from typing import List
 import bcrypt
@@ -49,32 +50,6 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
-# --- UTILITIES (HYPE SCORE CALCULATION) ---
-def calculate_hype_score(mentions) -> float:
-    if not mentions:
-        return 0.5 # Default to Neutral if no news
-    
-    total_weighted_score = 0.0
-    total_confidence = 0.0
-    
-    for m in mentions:
-        # Assign Weight
-        if m.sentiment_label == models.SentimentType.positive:
-            weight = 1.0
-        elif m.sentiment_label == models.SentimentType.neutral:
-            weight = 0.5
-        else: # negative
-            weight = 0.0
-            
-        # Math
-        total_weighted_score += (weight * float(m.confidence_score))
-        total_confidence += float(m.confidence_score)
-        
-    if total_confidence == 0:
-        return 0.5
-        
-    return total_weighted_score / total_confidence
 
 # Dependency: Get Current User
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(database.get_db)):
@@ -138,55 +113,25 @@ def get_dashboard_stocks(
     sim_date: date, # User MUST provide a date (e.g., ?sim_date=2023-01-01)
     db: Session = Depends(database.get_db)
 ):
-    # This SQL query says:
-    # "Give me the stock info AND the price info WHERE date = sim_date"
-    # It returns exactly 18 rows. Lightning fast.
-    stocks = db.query(
+    """
+    Optimized: Fetches Stock + Price + Pre-calculated Scores in ONE query.
+    """
+    return db.query(
         models.Stock.ticker,
         models.Stock.company_name,
         models.Stock.sector,
         models.StockPrice.open_price.label("daily_open"),
         models.StockPrice.close_price.label("daily_close"),
-        models.StockPrice.volume.label("daily_volume")
-    ).join(models.StockPrice)\
+        models.StockPrice.volume.label("daily_volume"),
+        func.coalesce(models.DailySentimentScore.news_score, 0.5).label("news_hype_score"),
+        func.coalesce(models.DailySentimentScore.reddit_score, 0.5).label("reddit_hype_score")
+    ).join(models.StockPrice, models.Stock.ticker == models.StockPrice.ticker)\
+     .outerjoin(models.DailySentimentScore, 
+        (models.DailySentimentScore.ticker == models.Stock.ticker) & 
+        (models.DailySentimentScore.date == sim_date)
+     )\
      .filter(models.StockPrice.date == sim_date)\
      .all()
-    
-    # Get ALL mentions for this day
-    news = db.query(models.NewsSentiment).join(models.NewsArticle)\
-             .filter(models.NewsArticle.date == sim_date).all()
-    reddit = db.query(models.RedditSentiment).join(models.RedditPost)\
-             .filter(models.RedditPost.date == sim_date).all()
-    
-    news_map = {}
-    reddit_map = {}
-
-    for n in news:
-        news_map.setdefault(n.ticker, []).append(n)
-    for r in reddit:
-        reddit_map.setdefault(r.ticker, []).append(r)
-
-    response_list = []
-
-    for s in stocks:
-        # Calculate scores
-        n_score = calculate_hype_score(news_map.get(s.ticker, []))
-        r_score = calculate_hype_score(reddit_map.get(s.ticker, []))
-
-        # Create Schema Object manually
-        row = schemas.StockDashboardRow(
-            ticker=s.ticker,
-            company_name=s.company_name,
-            sector=s.sector,
-            daily_open=s.daily_open,
-            daily_close=s.daily_close,
-            daily_volume=s.daily_volume,
-            reddit_hype_score=r_score,
-            news_hype_score=n_score
-        )
-        response_list.append(row)
-
-    return response_list
 
 @app.get("/stocks/{ticker}", response_model=schemas.StockDetailWithHistory)
 def get_stock_detail(ticker: str, db: Session = Depends(database.get_db)):
@@ -198,60 +143,38 @@ def get_stock_detail(ticker: str, db: Session = Depends(database.get_db)):
     # Fetch All Raw Data (Prices, News, Reddit) associated with this ticker
     prices = db.query(models.StockPrice).filter(models.StockPrice.ticker == ticker).all()
     
-    news_mentions = db.query(models.NewsSentiment).join(models.NewsArticle)\
-        .filter(models.NewsSentiment.ticker == ticker).all()
-        
-    reddit_mentions = db.query(models.RedditSentiment).join(models.RedditPost)\
-        .filter(models.RedditSentiment.ticker == ticker).all()
+    # Fetch Pre-Calculated Scores
+    scores = db.query(models.DailySentimentScore).filter(models.DailySentimentScore.ticker == ticker).all()
     
     history_map = {}
     
-    # -- Bucket Prices --
+    # Initialize with Prices
     for p in prices:
-        d = p.date
-        if d not in history_map:
-            history_map[d] = {"price": None, "volume": 0, "news": [], "reddit": []}
-        
-        history_map[d]["price"] = p.close_price
-        history_map[d]["volume"] = p.volume
+        history_map[p.date] = {
+            "close_price": p.close_price,
+            "daily_volume": p.volume,
+            "news_hype_score": 0.5,   # Default
+            "reddit_hype_score": 0.5  # Default
+        }
 
-    # -- Bucket News Mentions --
-    for n in news_mentions:
-        d = n.article.date # We need the date from the joined Article table
-        # We allow news on days without price (e.g., weekends)
-        if d not in history_map:
-             history_map[d] = {"price": None, "volume": 0, "news": [], "reddit": []}
-        history_map[d]["news"].append(n)
+    # Overlay Scores
+    for s in scores:
+        if s.date in history_map:
+            history_map[s.date]["news_hype_score"] = float(s.news_score) if s.news_score is not None else 0.5
+            history_map[s.date]["reddit_hype_score"] = float(s.reddit_score) if s.reddit_score is not None else 0.5
 
-    # -- Bucket Reddit Mentions --
-    for r in reddit_mentions:
-        d = r.post.date # Date from joined Post table
-        if d not in history_map:
-             history_map[d] = {"price": None, "volume": 0, "news": [], "reddit": []}
-        history_map[d]["reddit"].append(r)
-    
+    # 5. Flatten to List
     history_list = []
-
-    # Sort dates so the graph is chronological
-    sorted_dates = sorted(history_map.keys())
-    for d in sorted_dates:
-        day_data = history_map[d]
-        
-        # Use existing helper to calculate daily scores
-        n_score = calculate_hype_score(day_data["news"])
-        r_score = calculate_hype_score(day_data["reddit"])
-
-        # Create the schema object
-        point = schemas.DailyStockStats(
+    for d in sorted(history_map.keys()):
+        data = history_map[d]
+        history_list.append(schemas.DailyStockStats(
             date=d,
-            close_price=day_data["price"],
-            daily_volume=day_data["volume"],
-            news_hype_score=n_score,
-            reddit_hype_score=r_score
-        )
-        history_list.append(point)
+            close_price=data["close_price"],
+            daily_volume=data["daily_volume"],
+            news_hype_score=data["news_hype_score"],
+            reddit_hype_score=data["reddit_hype_score"]
+        ))
 
-    # Attach to Stock object
     return schemas.StockDetailWithHistory(
         ticker=stock.ticker,
         company_name=stock.company_name,
