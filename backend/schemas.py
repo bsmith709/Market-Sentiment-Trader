@@ -123,12 +123,23 @@ class SentimentOut(BaseModel):
 # --- STRATEGY & BACKTEST SCHEMAS ---
 class StrategyRule(BaseModel):
     ticker: str
+
+    max_allocation_pct: float = 0.2
+
     news_buy_threshold: Optional[float] = None
     news_sell_threshold: Optional[float] = None
     
     reddit_buy_threshold: Optional[float] = None
     reddit_sell_threshold: Optional[float] = None
 
+    # Validator: ensure max_allocation_pct between 0.01 and 1.0
+    @field_validator('max_allocation_pct')
+    @classmethod
+    def check_pct(cls, v):
+        if not (0.01 <= v <= 1.0):
+            raise ValueError("Max allocation must be between 1% (0.01) and 100% (1.0)")
+        return v
+    
     # Validator: Check Ranges (0 to 1) only if value is provided
     @field_validator('news_buy_threshold', 'news_sell_threshold', 
                      'reddit_buy_threshold', 'reddit_sell_threshold')
@@ -175,6 +186,7 @@ class StrategyRule(BaseModel):
                     f"must be higher than Sell Threshold ({self.news_sell_threshold}) "
                     "to prevent infinite trading loops."
                 )
+        return self
 
 class StrategyBase(BaseModel):
     name: str

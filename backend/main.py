@@ -8,6 +8,7 @@ import bcrypt
 import models, schemas, database
 from jose import JWTError, jwt
 from fastapi.middleware.cors import CORSMiddleware
+import backtest_engine
 
 # --- CONFIG ---
 SECRET_KEY = "CHANGE_THIS_TO_A_RANDOM_SECRET_STRING"
@@ -288,47 +289,6 @@ def delete_strategy(
     return None
 
 # --- BACKTEST EXECUTION ---
-
-def run_backtest_logic(job_id: int, db: Session):
-    """
-    Simulates the backtest. Later I will integrate the backtest engine here.
-    """
-    import time
-    import random
-    
-    print(f"Starting job {job_id}...")
-    time.sleep(5) # Simulate processing time
-    
-    # 1. Fetch Job
-    job = db.query(models.BacktestJob).get(job_id)
-    if not job:
-        return
-
-    # 2. Simulate Result (Replace this with real engine logic later)
-    # This logic would actually use the strategy.buy_rules_json to check stock prices
-    try:
-        total_return = random.uniform(-10, 20)
-        
-        # Create Result Record
-        result = models.BacktestResult(
-            job_id=job.job_id,
-            total_return_pct=total_return,
-            win_rate=random.uniform(0.4, 0.7),
-            max_drawdown_pct=random.uniform(-5, -20)
-        )
-        db.add(result)
-        
-        # Update Job Status
-        job.status = models.JobStatus.completed
-        job.completed_at = datetime.utcnow()
-        db.commit()
-        print(f"Job {job_id} completed.")
-        
-    except Exception as e:
-        print(f"Job {job_id} failed: {e}")
-        job.status = models.JobStatus.failed
-        db.commit()
-
 @app.post("/backtest/{strategy_id}", response_model=schemas.BacktestJobOut)
 def submit_backtest(
     strategy_id: int, 
@@ -352,7 +312,7 @@ def submit_backtest(
     db.refresh(new_job)
 
     # Hand off to background task
-    background_tasks.add_task(run_backtest_logic, new_job.job_id, db)
+    background_tasks.add_task(backtest_engine.run_backtest, new_job.job_id)
 
     return new_job
 
@@ -400,7 +360,9 @@ def get_leaderboard(db: Session = Depends(database.get_db)):
         models.LeaderboardEntry.total_return_pct,
         models.User.username,
         models.Strategy.name.label("strategy_name")
-    ).join(models.User).join(models.Strategy)\
+    ).select_from(models.LeaderboardEntry)\
+     .join(models.User, models.LeaderboardEntry.user_id == models.User.user_id)\
+     .join(models.Strategy, models.LeaderboardEntry.strategy_id == models.Strategy.strategy_id)\
      .order_by(models.LeaderboardEntry.total_return_pct.desc())\
      .limit(10)\
      .all()
@@ -496,3 +458,32 @@ def get_system_stats(
             .filter(models.BacktestJob.status == models.JobStatus.pending).scalar(),
         "total_trades_logged": db.query(func.count(models.TradeLog.log_id)).scalar(),
     }
+
+@app.put("/admin/users/{user_id}/promote", response_model=schemas.UserAdminOut)
+def promote_user_to_admin(
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    admin_user: models.User = Depends(get_current_admin)
+):
+    """
+    Promotes a normal user to Admin.
+    """
+    user = db.query(models.User).filter(models.User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.role == models.UserRole.admin:
+        raise HTTPException(status_code=400, detail="User is already an admin")
+
+    user.role = models.UserRole.admin
+    db.commit()
+    db.refresh(user)
+    
+    # Return schema requires strategy_count, calculate it or set 0
+    return schemas.UserAdminOut(
+        user_id=user.user_id,
+        username=user.username,
+        created_at=user.created_at,
+        role=user.role.value,
+        strategy_count=len(user.strategies) # SQLAlchemy relationship makes this easy
+    )

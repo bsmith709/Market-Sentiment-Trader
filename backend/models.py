@@ -204,7 +204,7 @@ class TradeLog(Base):
     log_id = Column(Integer, primary_key=True, index=True)
     result_id = Column(Integer, ForeignKey("backtest_results.result_id"), nullable=False)
     ticker = Column(String, ForeignKey("stocks.ticker"), nullable=False)
-    action = Column(Enum(TradeAction), nullable=False)
+    action = Column(Enum(TradeAction, name="trade_action"), nullable=False)
     date = Column(Date, nullable=False)
     price = Column(Numeric(14, 2), nullable=False)
     quantity = Column(Integer, nullable=False)
