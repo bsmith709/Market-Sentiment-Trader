@@ -71,6 +71,14 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
+def get_current_admin(current_user: models.User = Depends(get_current_user)):
+    if current_user.role != models.UserRole.admin:
+        raise HTTPException(
+            status_code=403, 
+            detail="Admin privileges required"
+        )
+    return current_user
+
 # --- AUTH ROUTES ---
 
 @app.post("/register", response_model=schemas.UserOut)
@@ -105,6 +113,27 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@app.delete("/admin/users/{user_id}", status_code=204)
+def delete_user(
+    user_id: int, 
+    db: Session = Depends(database.get_db),
+    admin_user: models.User = Depends(get_current_admin) # <--- The Lock
+):
+    """
+    Admin only: Delete a user and all their data (Cascades in DB).
+    """
+    user = db.query(models.User).filter(models.User.user_id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Prevent deleting yourself (optional safety)
+    if user.user_id == admin_user.user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own admin account")
+
+    db.delete(user)
+    db.commit()
+    return None
 
 # --- TICKER DASHBOARD ROUTES ---
 
@@ -237,6 +266,27 @@ def get_my_strategies(
 ):
     return db.query(models.Strategy).filter(models.Strategy.user_id == current_user.user_id).all()
 
+@app.delete("/strategies/{strategy_id}", status_code=204)
+def delete_strategy(
+    strategy_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """
+    User can delete their own strategy.
+    """
+    strategy = db.query(models.Strategy).filter(
+        models.Strategy.strategy_id == strategy_id,
+        models.Strategy.user_id == current_user.user_id # <--- Ownership Check
+    ).first()
+
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    
+    db.delete(strategy)
+    db.commit()
+    return None
+
 # --- BACKTEST EXECUTION ---
 
 def run_backtest_logic(job_id: int, db: Session):
@@ -316,3 +366,133 @@ def get_backtest_jobs(
         models.Strategy.user_id == current_user.user_id
     ).all()
     return jobs
+
+@app.get("/backtest/results/{job_id}", response_model=schemas.BacktestResultOut)
+def get_backtest_result(
+    job_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Ensure the Job belongs to the user (via Strategy)
+    job = db.query(models.BacktestJob).join(models.Strategy).filter(
+        models.BacktestJob.job_id == job_id,
+        models.Strategy.user_id == current_user.user_id
+    ).first()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != models.JobStatus.completed:
+        raise HTTPException(status_code=400, detail="Job not completed yet")
+
+    # 2. Return the result (Pydantic will auto-fetch the 'trades' relationship)
+    return job.result
+
+@app.get("/leaderboard", response_model=List[schemas.LeaderboardOut])
+def get_leaderboard(db: Session = Depends(database.get_db)):
+    """
+    Returns top performing strategies. 
+    Public endpoint (no login required).
+    """
+    # Join with User and Strategy to get names
+    entries = db.query(
+        models.LeaderboardEntry.rank_date,
+        models.LeaderboardEntry.total_return_pct,
+        models.User.username,
+        models.Strategy.name.label("strategy_name")
+    ).join(models.User).join(models.Strategy)\
+     .order_by(models.LeaderboardEntry.total_return_pct.desc())\
+     .limit(10)\
+     .all()
+     
+    return entries
+
+@app.get("/admin/users", response_model=List[schemas.UserAdminOut])
+def list_all_users(
+    db: Session = Depends(database.get_db),
+    admin_user: models.User = Depends(get_current_admin)
+):
+    """
+    List all users with their strategy counts.
+    """
+    # SQL Query: SELECT u.*, COUNT(s.strategy_id) FROM users u LEFT JOIN strategies s ...
+    users = db.query(
+        models.User,
+        func.count(models.Strategy.strategy_id).label("strategy_count")
+    ).outerjoin(models.Strategy)\
+     .group_by(models.User.user_id)\
+     .all()
+    
+    # Map results to Schema
+    results = []
+    for user, count in users:
+        # Create schema manually or use unpacking if fields match perfectly
+        u_out = schemas.UserAdminOut(
+            user_id=user.user_id,
+            username=user.username,
+            created_at=user.created_at,
+            role=user.role.value,
+            strategy_count=count
+        )
+        results.append(u_out)
+    
+    return results
+
+@app.get("/admin/strategies", response_model=List[schemas.StrategyAdminOut])
+def list_all_strategies(
+    db: Session = Depends(database.get_db),
+    admin_user: models.User = Depends(get_current_admin)
+):
+    """
+    List ALL strategies (not just own) with owner info.
+    """
+    # Join with User to get usernames
+    strategies = db.query(models.Strategy).options(joinedload(models.Strategy.owner)).all()
+    
+    results = []
+    for s in strategies:
+        # Map DB JSON -> Schema List (Same logic as create_strategy)
+        results.append(schemas.StrategyAdminOut(
+            strategy_id=s.strategy_id,
+            user_id=s.user_id,
+            name=s.name,
+            description=s.description,
+            created_at=s.created_at,
+            rules=s.rules, 
+            owner_username=s.owner.username # <--- The extra field
+        ))
+    return results
+
+@app.delete("/admin/strategies/{strategy_id}", status_code=204)
+def delete_any_strategy(
+    strategy_id: int,
+    db: Session = Depends(database.get_db),
+    admin_user: models.User = Depends(get_current_admin)
+):
+    """
+    Moderation: Delete ANY strategy by ID (Admin Override).
+    """
+    strategy = db.query(models.Strategy).filter(models.Strategy.strategy_id == strategy_id).first()
+    if not strategy:
+        raise HTTPException(status_code=404, detail="Strategy not found")
+    
+    db.delete(strategy)
+    db.commit()
+    return None
+
+@app.get("/admin/stats", response_model=schemas.SystemStats)
+def get_system_stats(
+    db: Session = Depends(database.get_db),
+    admin_user: models.User = Depends(get_current_admin)
+):
+    """
+    Dashboard metrics for the Admin.
+    """
+    return {
+        "total_users": db.query(func.count(models.User.user_id)).scalar(),
+        "total_strategies": db.query(func.count(models.Strategy.strategy_id)).scalar(),
+        "total_backtests": db.query(func.count(models.BacktestJob.job_id)).scalar(),
+        "pending_jobs": db.query(func.count(models.BacktestJob.job_id))
+            .filter(models.BacktestJob.status == models.JobStatus.pending).scalar(),
+        "total_trades_logged": db.query(func.count(models.TradeLog.log_id)).scalar(),
+    }

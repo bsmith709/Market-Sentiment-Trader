@@ -60,11 +60,15 @@ CREATE TABLE reddit_sentiment_mentions (
     UNIQUE (post_id, ticker)
 );
 
+-- ENUM Type for User Roles
+CREATE TYPE user_role AS ENUM ('user', 'admin');
+
 -- 7. USERS
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
+    role user_role NOT NULL DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

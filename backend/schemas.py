@@ -226,3 +226,33 @@ class BacktestJobOut(BaseModel):
     result: Optional[BacktestResultOut] = None # Include result if complete
     class Config:
         from_attributes = True
+
+class LeaderboardOut(BaseModel):
+    rank_date: date
+    username: str        # We want the name, not the ID
+    strategy_name: str
+    total_return_pct: float
+    
+    class Config:
+        from_attributes = True
+
+# --- ADMIN SCHEMAS ---
+
+class UserAdminOut(UserOut):
+    role: str # 'user' or 'admin'
+    # Optional: Count of their strategies (computed field)
+    strategy_count: Optional[int] = 0
+
+class StrategyAdminOut(StrategyOut):
+    # Admin needs to know who owns the strategy
+    owner_username: str 
+    
+    class Config:
+        from_attributes = True
+
+class SystemStats(BaseModel):
+    total_users: int
+    total_strategies: int
+    total_backtests: int
+    pending_jobs: int
+    total_trades_logged: int

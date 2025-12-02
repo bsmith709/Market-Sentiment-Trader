@@ -22,6 +22,10 @@ class TradeAction(str, enum.Enum):
     BUY = "BUY"
     SELL = "SELL"
 
+class UserRole(str, enum.Enum):
+    user = "user"
+    admin = "admin"
+
 # ==========================================
 # GROUP A: REFERENCE & PUBLIC DATA
 # ==========================================
@@ -147,6 +151,8 @@ class User(Base):
     username = Column(String, unique=True, nullable=False, index=True)
     password_hash = Column(String, nullable=False)
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+
+    role = Column(Enum(UserRole), default=UserRole.user, nullable=False)
 
     strategies = relationship("Strategy", back_populates="owner")
     leaderboard_entries = relationship("LeaderboardEntry", back_populates="user")
