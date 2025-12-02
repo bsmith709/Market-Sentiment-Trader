@@ -16,6 +16,8 @@ NEWS_FILE = "clean_news_2021.csv"
 REDDIT_FILE = "clean_reddit_2021.csv"
 NEWS_SENTIMENT_FILE = "ready_news_sentiment.csv"
 REDDIT_SENTIMENT_FILE = "ready_reddit_sentiment.csv"
+DIVIDENDS_FILE = "clean_dividends.csv"
+SPLITS_FILE = "clean_stock_splits.csv"
 
 # ==========================================
 # HELPER FUNCTIONS
@@ -37,7 +39,12 @@ def reset_database(cur):
         "reddit_sentiment_mentions",
         "stock_prices",
         "news_articles",
-        "reddit_posts"
+        "reddit_posts",
+        "strategies",
+        "dividends",
+        "stock_splits",
+        "daily_sentiment_aggregates",
+        "leaderboard"
     ]
     
     for table in tables:
@@ -157,6 +164,16 @@ if __name__ == "__main__":
         # Table cols: (id auto), ticker, date, open_price, close_price, volume
         bulk_copy(cur, STOCKS_FILE, 'stock_prices', 
                  ['ticker', 'date', 'open_price', 'close_price', 'volume'])
+        
+        # 2b. Dividends
+        # Table: dividend_id (auto), ticker, ex_date, amount
+        bulk_copy(cur, DIVIDENDS_FILE, 'dividends', 
+                 ['ticker', 'ex_date', 'amount'])
+
+        # 2c. Stock Splits
+        # Table: split_id (auto), ticker, date, ratio
+        bulk_copy(cur, SPLITS_FILE, 'stock_splits', 
+                 ['ticker', 'date', 'ratio'])
         
         # 3. News Articles
         # CSV has: article_id, date, headline, source, url, ticker

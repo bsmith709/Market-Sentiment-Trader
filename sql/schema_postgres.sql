@@ -114,3 +114,55 @@ CREATE TABLE trade_logs (
     quantity INT NOT NULL,
     profit NUMERIC(14, 2) -- Nullable for BUYs
 );
+
+-- 12. DAILY_SENTIMENT_AGGREGATES
+-- Caches the calculated score so Backtester doesn't have to scan raw posts
+CREATE TABLE daily_sentiment_aggregates (
+    ticker VARCHAR(10) NOT NULL REFERENCES stocks(ticker),
+    date DATE NOT NULL,
+    news_score NUMERIC(5, 4),   -- 0.0000 to 1.0000
+    reddit_score NUMERIC(5, 4), -- 0.0000 to 1.0000
+    PRIMARY KEY (ticker, date)
+);
+
+-- 13. MARKET_HOLIDAYS
+-- Prevents the engine from trying to fetch data on closed days
+CREATE TABLE market_holidays (
+    date DATE PRIMARY KEY,
+    name VARCHAR(100) -- e.g., "Christmas Day"
+);
+
+-- 14. DIVIDENDS
+-- Essential for calculating Total Return (Price + Payouts)
+CREATE TABLE dividends (
+    dividend_id SERIAL PRIMARY KEY,
+    ticker VARCHAR(10) NOT NULL REFERENCES stocks(ticker),
+    ex_date DATE NOT NULL,
+    amount NUMERIC(10, 4) NOT NULL, -- Cash amount per share
+    UNIQUE (ticker, ex_date)
+);
+
+-- 15. STOCK_SPLITS
+-- Essential for normalizing historical price data
+CREATE TABLE stock_splits (
+    split_id SERIAL PRIMARY KEY,
+    ticker VARCHAR(10) NOT NULL REFERENCES stocks(ticker),
+    date DATE NOT NULL,
+    ratio NUMERIC(10, 4) NOT NULL, -- e.g., 0.5 for 2-for-1 split
+    UNIQUE (ticker, date)
+);
+
+-- 16. LEADERBOARD
+-- High Scores for the entire platform
+CREATE TABLE leaderboard (
+    entry_id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+    strategy_id INT NOT NULL REFERENCES strategies(strategy_id) ON DELETE CASCADE,
+    backtest_id INT NOT NULL REFERENCES backtest_results(result_id),
+    
+    total_return_pct NUMERIC(10, 2) NOT NULL,
+    rank_date DATE DEFAULT CURRENT_DATE,
+    
+    -- Constraint: A backtest can only appear once per day
+    UNIQUE (backtest_id, rank_date)
+);
