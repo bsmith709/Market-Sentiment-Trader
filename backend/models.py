@@ -170,8 +170,8 @@ class Strategy(Base):
     created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
 
     owner = relationship("User", back_populates="strategies")
-    jobs = relationship("BacktestJob", back_populates="strategy")
-    leaderboard_entries = relationship("LeaderboardEntry", back_populates="strategy")
+    jobs = relationship("BacktestJob", back_populates="strategy", cascade="all, delete-orphan")
+    leaderboard_entries = relationship("LeaderboardEntry", back_populates="strategy", cascade="all, delete-orphan")
 
 class BacktestJob(Base):
     __tablename__ = "backtest_jobs"
@@ -183,7 +183,7 @@ class BacktestJob(Base):
     completed_at = Column(TIMESTAMP, nullable=True)
 
     strategy = relationship("Strategy", back_populates="jobs")
-    result = relationship("BacktestResult", back_populates="job", uselist=False)
+    result = relationship("BacktestResult", back_populates="job", uselist=False, cascade="all, delete-orphan")
 
 class BacktestResult(Base):
     __tablename__ = "backtest_results"
@@ -195,8 +195,8 @@ class BacktestResult(Base):
     max_drawdown_pct = Column(Numeric(10, 2))
 
     job = relationship("BacktestJob", back_populates="result")
-    trades = relationship("TradeLog", back_populates="result")
-    leaderboard_entry = relationship("LeaderboardEntry", back_populates="backtest", uselist=False)
+    trades = relationship("TradeLog", back_populates="result", cascade="all, delete-orphan")
+    leaderboard_entry = relationship("LeaderboardEntry", back_populates="backtest", uselist=False, cascade="all, delete-orphan")
 
 class TradeLog(Base):
     __tablename__ = "trade_logs"

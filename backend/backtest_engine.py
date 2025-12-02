@@ -130,8 +130,26 @@ def run_backtest(job_id: int):
             # Iterate RULES in ORDER (User Priority)
             for rule in strategy.rules:
                 ticker = rule['ticker']
+
+                # Get Settings specific to this stock
+                rule_type = rule.get('type', 'momentum') # Default to momentum
+
+                # Helper Logic based on THIS rule's type
+                def is_buy_signal(score, threshold):
+                    if threshold is None: return False
+                    if rule_type == 'momentum':
+                        return score >= threshold
+                    else: # reversion
+                        return score <= threshold
+
+                def is_sell_signal(score, threshold):
+                    if threshold is None: return False
+                    if rule_type == 'momentum':
+                        return score <= threshold
+                    else: # reversion
+                        return score >= threshold
                 
-                # 1. Check Data Availability
+                # Check Data Availability
                 if ticker not in daily_prices: continue
                 price_data = daily_prices[ticker]
                 close_p = float(price_data.close_price)
@@ -141,16 +159,16 @@ def run_backtest(job_id: int):
                 n_score = float(scores.news_score) if scores and scores.news_score is not None else 0.5
                 r_score = float(scores.reddit_score) if scores and scores.reddit_score is not None else 0.5
 
-                # 2. Check Logic Signals
+                # Check Logic Signals
                 
                 # --- SELL LOGIC (Priority) ---
                 # Check News Sell
                 ns_thresh = rule.get('news_sell_threshold')
-                news_sell = (ns_thresh is not None and n_score <= ns_thresh)
+                news_sell = is_sell_signal(n_score, ns_thresh)
                 
                 # Check Reddit Sell
                 rs_thresh = rule.get('reddit_sell_threshold')
-                reddit_sell = (rs_thresh is not None and r_score <= rs_thresh)
+                reddit_sell = is_sell_signal(r_score, rs_thresh)
                 
                 if (news_sell or reddit_sell) and holdings[ticker] > 0:
                     # EXECUTE SELL
@@ -182,11 +200,11 @@ def run_backtest(job_id: int):
                 
                 # Check News Buy
                 nb_thresh = rule.get('news_buy_threshold')
-                news_buy = (nb_thresh is not None and n_score >= nb_thresh)
+                news_buy = is_buy_signal(n_score, nb_thresh)
                 
                 # Check Reddit Buy
                 rb_thresh = rule.get('reddit_buy_threshold')
-                reddit_buy = (rb_thresh is not None and r_score >= rb_thresh)
+                reddit_buy = is_buy_signal(r_score, rb_thresh)
                 
                 # ENTRY: If ANY signal says buy (and the other isn't vetoing via logic above)
                 should_buy = (news_buy or reddit_buy)
@@ -303,7 +321,7 @@ def run_backtest(job_id: int):
 
         db.commit()
         print(f"Job {job_id} Finished. Return: {total_return:.2f}%")
-        
+
     except Exception as e:
         print(f"CRASH in Backtest Job {job_id}: {e}")
         traceback.print_exc() # Print full error stack trace to console

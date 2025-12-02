@@ -121,8 +121,14 @@ class SentimentOut(BaseModel):
         from_attributes = True
 
 # --- STRATEGY & BACKTEST SCHEMAS ---
+class StrategyType(str, Enum):
+    momentum = "momentum"
+    mean_reversion = "mean_reversion"
+
 class StrategyRule(BaseModel):
     ticker: str
+
+    type: StrategyType = StrategyType.momentum
 
     max_allocation_pct: float = 0.2
 
@@ -165,27 +171,27 @@ class StrategyRule(BaseModel):
     # Prevent Overlapping Buy/Sell Thresholds
     @model_validator(mode='after')
     def check_logical_consistency(self):
-        # Check Reddit Overlap
-        if (self.reddit_buy_threshold is not None and 
-            self.reddit_sell_threshold is not None):
-            
-            if self.reddit_buy_threshold <= self.reddit_sell_threshold:
-                raise ValueError(
-                    f"Ticker {self.ticker}: Reddit Buy Threshold ({self.reddit_buy_threshold}) "
-                    f"must be higher than Sell Threshold ({self.reddit_sell_threshold}) "
-                    "to prevent infinite trading loops."
-                )
+        
+        # MOMENTUM LOGIC (Buy > Sell)
+        if self.type == StrategyType.momentum:
+            if self.news_buy_threshold is not None and self.news_sell_threshold is not None:
+                if self.news_buy_threshold <= self.news_sell_threshold:
+                    raise ValueError(f"Momentum ({self.ticker}): News Buy must be > Sell")
+                
+            if self.reddit_buy_threshold is not None and self.reddit_sell_threshold is not None:
+                if self.reddit_buy_threshold <= self.reddit_sell_threshold:
+                    raise ValueError(f"Momentum ({self.ticker}): Reddit Buy must be > Sell")
 
-        # Check News Overlap
-        if (self.news_buy_threshold is not None and 
-            self.news_sell_threshold is not None):
+        # REVERSION LOGIC (Sell > Buy)
+        elif self.type == StrategyType.mean_reversion:
+            if self.news_buy_threshold is not None and self.news_sell_threshold is not None:
+                if self.news_buy_threshold >= self.news_sell_threshold:
+                    raise ValueError(f"Reversion ({self.ticker}): News Buy must be < Sell")
+                
+            if self.reddit_buy_threshold is not None and self.reddit_sell_threshold is not None:
+                if self.reddit_buy_threshold >= self.reddit_sell_threshold:
+                    raise ValueError(f"Reversion ({self.ticker}): Reddit Buy must be < Sell")
             
-            if self.news_buy_threshold <= self.news_sell_threshold:
-                raise ValueError(
-                    f"Ticker {self.ticker}: News Buy Threshold ({self.news_buy_threshold}) "
-                    f"must be higher than Sell Threshold ({self.news_sell_threshold}) "
-                    "to prevent infinite trading loops."
-                )
         return self
 
 class StrategyBase(BaseModel):
