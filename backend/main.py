@@ -152,6 +152,8 @@ def get_dashboard_stocks(
         models.Stock.sector,
         models.StockPrice.open_price.label("daily_open"),
         models.StockPrice.close_price.label("daily_close"),
+        models.StockPrice.high_price.label("daily_high"),
+        models.StockPrice.low_price.label("daily_low"),
         models.StockPrice.volume.label("daily_volume"),
         func.coalesce(models.DailySentimentScore.news_score, 0.5).label("news_hype_score"),
         func.coalesce(models.DailySentimentScore.reddit_score, 0.5).label("reddit_hype_score")
@@ -199,7 +201,10 @@ def get_stock_detail(ticker: str, db: Session = Depends(database.get_db)):
         data = history_map[d]
         history_list.append(schemas.DailyStockStats(
             date=d,
+            open_price=data["open_price"],
             close_price=data["close_price"],
+            high_price=data["high_price"],
+            low_price=data["low_price"], 
             daily_volume=data["daily_volume"],
             news_hype_score=data["news_hype_score"],
             reddit_hype_score=data["reddit_hype_score"]

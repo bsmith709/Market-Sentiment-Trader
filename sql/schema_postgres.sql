@@ -14,6 +14,8 @@ CREATE TABLE stock_prices (
     date DATE NOT NULL,
     open_price NUMERIC(14, 2), -- 'NUMERIC' is more precise than DECIMAL in Postgres
     close_price NUMERIC(14, 2),
+    high_price NUMERIC(14, 2),
+    low_price NUMERIC(14, 2),
     volume BIGINT,
     UNIQUE (ticker, date)
 );

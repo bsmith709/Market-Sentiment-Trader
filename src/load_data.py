@@ -69,7 +69,6 @@ def populate_stocks_table(cur):
         ('CRM', 'Salesforce', 'Technology'),
         ('CSCO', 'Cisco Systems', 'Technology'),
         ('GME', 'GameStop Corp.', 'Consumer Cyclical'),
-        ('GOOG', 'Alphabet Inc.', 'Technology'),
         ('GOOGL', 'Alphabet Inc.', 'Technology'),
         ('IBM', 'IBM', 'Technology'),
         ('INTC', 'Intel Corp.', 'Technology'),
@@ -163,7 +162,8 @@ if __name__ == "__main__":
         # CSV cols: ticker, date, open_price, close_price, volume
         # Table cols: (id auto), ticker, date, open_price, close_price, volume
         bulk_copy(cur, STOCKS_FILE, 'stock_prices', 
-                 ['ticker', 'date', 'open_price', 'close_price', 'volume'])
+                 ['ticker', 'date', 'open_price', 'close_price', 
+                  'high_price', 'low_price', 'volume'])
         
         # 2b. Dividends
         # Table: dividend_id (auto), ticker, ex_date, amount

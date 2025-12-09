@@ -13,7 +13,7 @@ START_DATE = "2021-01-01"
 END_DATE = "2021-12-31"
 
 # The exact columns for the final database
-EXPECTED_COLS = ['ticker', 'date', 'open_price', 'close_price', 'volume']
+EXPECTED_COLS = ['ticker', 'date', 'open_price', 'close_price', 'high_price', 'low_price', 'volume']
 
 data_frames = []
 
@@ -34,14 +34,16 @@ for filename in csv_files:
         
         # Rename columns to standard
         # Handle cases where 'Adj Close' exists or doesn't
-        if 'Adj Close' in df.columns:
-            df = df.rename(columns={'Adj Close': 'close_price'})
-        else:
+        if 'Close' in df.columns:
             df = df.rename(columns={'Close': 'close_price'})
+        elif 'Adj Close' in df.columns:
+            df = df.rename(columns={'Adj Close': 'close_price'})
             
         df = df.rename(columns={
             'Date': 'date', 
             'Open': 'open_price', 
+            'High': 'high_price', # NEW
+            'Low': 'low_price',   # NEW
             'Volume': 'volume'
         })
         
@@ -68,7 +70,7 @@ for ticker in MEME_TICKERS:
     print(f"Downloading {ticker}...")
     
     # Download ONE ticker at a time to avoid MultiIndex headers
-    df = yf.download(ticker, start=START_DATE, end=END_DATE, progress=False, auto_adjust=True)
+    df = yf.download(ticker, start=START_DATE, end=END_DATE, progress=False, auto_adjust=False)
     
     if df.empty:
         print(f"Warning: No data found for {ticker}")
@@ -91,6 +93,8 @@ for ticker in MEME_TICKERS:
         'Date': 'date',
         'Open': 'open_price',
         'Close': 'close_price',
+        'High': 'high_price', # NEW
+        'Low': 'low_price',   # NEW
         'Volume': 'volume'
     })
     

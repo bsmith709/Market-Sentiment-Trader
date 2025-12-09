@@ -6,7 +6,7 @@ from database import SessionLocal
 import traceback 
 
 # --- CONFIG ---
-INITIAL_CASH = 10000.00
+INITIAL_CASH = 100000.00
 
 def run_backtest(job_id: int):
     """

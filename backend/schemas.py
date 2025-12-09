@@ -41,14 +41,6 @@ class TokenData(BaseModel):
     username: Optional[str] = None
 
 # --- STOCK DASHBOARD SCHEMAS ---
-class StockPriceOut(BaseModel):
-    date: date
-    open_price: float
-    close_price: float
-    volume: int
-    class Config:
-        from_attributes = True
-
 class NewsArticleOut(BaseModel):
     headline: str
     source: Optional[str]
@@ -85,6 +77,8 @@ class StockDashboardRow(BaseModel):
     sector: str
     daily_open: float
     daily_close: float 
+    daily_high: float
+    daily_low: float
     daily_volume: int
     reddit_hype_score: float = 0.5 # Default to neutral
     news_hype_score: float = 0.5
@@ -95,7 +89,10 @@ class StockDashboardRow(BaseModel):
 # New Schema for a single point on your graph (One Day)
 class DailyStockStats(BaseModel):
     date: date
+    open_price: Optional[float] = None
     close_price: Optional[float] = None
+    high_price: Optional[float] = None
+    low_price: Optional[float] = None
     daily_volume: Optional[int] = None
     news_hype_score: float = 0.5   # Default neutral
     reddit_hype_score: float = 0.5 # Default neutral

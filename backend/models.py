@@ -53,6 +53,8 @@ class StockPrice(Base):
     date = Column(Date, nullable=False)
     open_price = Column(Numeric(14, 2))
     close_price = Column(Numeric(14, 2))
+    high_price = Column(Numeric(14, 2))
+    low_price = Column(Numeric(14, 2))
     volume = Column(Integer)
 
     stock = relationship("Stock", back_populates="prices")
