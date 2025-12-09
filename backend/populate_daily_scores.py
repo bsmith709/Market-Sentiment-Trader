@@ -143,6 +143,7 @@ def run_etl():
                     date=sim_date,
                     news_score=n_score,
                     reddit_score=r_score,
+                    mention_count=count
                 )
                 batch.append(agg)
             

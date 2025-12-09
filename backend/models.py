@@ -139,6 +139,7 @@ class DailySentimentScore(Base):
     date = Column(Date, primary_key=True)
     news_score = Column(Numeric(5, 4))
     reddit_score = Column(Numeric(5, 4))
+    mention_count = Column(Integer, default=0)
     
     stock = relationship("Stock", back_populates="daily_scores")
 

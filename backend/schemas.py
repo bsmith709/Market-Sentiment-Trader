@@ -135,6 +135,19 @@ class StrategyRule(BaseModel):
     reddit_buy_threshold: Optional[float] = None
     reddit_sell_threshold: Optional[float] = None
 
+    # --- NEW RISK SETTINGS ---
+    stop_loss_pct: Optional[float] = None        # e.g. 0.10 (10% max loss)
+    take_profit_pct: Optional[float] = None      # e.g. 0.20 (20% gain target)
+    trailing_stop_pct: Optional[float] = None    # e.g. 0.05 (Sell if drops 5% from peak)
+    cooldown_days: int = 0                       # Days to wait after selling
+    
+    # --- NEW SIGNAL FILTERS ---
+    min_mentions: int = 0                        # Noise filter
+    hype_smoothing_window: int = 0               # 0 = Raw, 3 = Fast EMA, 10 = Slow EMA
+    price_sma_days: Optional[int] = None         # e.g. 50 (Only buy if Price > 50-day SMA)
+    news_hype_delta_min: Optional[float] = None   # e.g. 0.1 (10% increase from prior day)
+    reddit_hype_delta_min: Optional[float] = None
+
     # Validator: ensure max_allocation_pct between 0.01 and 1.0
     @field_validator('max_allocation_pct')
     @classmethod

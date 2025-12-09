@@ -11,7 +11,10 @@ INITIAL_CASH = 100000.00
 def run_backtest(job_id: int):
     """
     Production-Grade Backtest Engine.
-    Features: Event-Driven, Split/Dividend aware, Risk Managed.
+    Features: 
+        - Event-Driven (Splits/Dividends)
+        - Risk Managed (Stop Loss, Take Profit, Trailing Stop)
+        - Signal Filtered (SMA, EMA, Cooldown)
     """
     db = SessionLocal()
     try:
@@ -30,8 +33,6 @@ def run_backtest(job_id: int):
         # Extract tickers for batch querying
         # strategy.rules is a List of Dicts (JSONB)
         tickers = [r['ticker'] for r in strategy.rules]
-
-        cost_basis = {t: 0.0 for t in tickers} # Average price per share
 
         # ---------------------------------------------------
         # BATCH DATA LOADING
@@ -84,10 +85,22 @@ def run_backtest(job_id: int):
         cash = INITIAL_CASH
         holdings = {t: 0 for t in tickers} # { "AAPL": 0 }
         trades = []
+
+        # Stats tracking
         peak_value = INITIAL_CASH
         max_drawdown = 0.0
         winning_trades = 0
         total_sell_trades = 0
+
+        # State tracking
+        cost_basis = {t: 0.0 for t in tickers} # Average price per share
+        last_sell_date = {t: None for t in tickers}  # For Cooldown
+        highest_price_seen = {t: 0.0 for t in tickers} # For Trailing Stop
+        
+        # Indicators
+        price_history = {t: [] for t in tickers}     # List of Close prices for SMA
+        hype_ema_state = {t: {'news': 0.5, 'reddit': 0.5} for t in tickers} # Current EMA
+        prev_day_scores = {t: {'news': 0.5, 'reddit': 0.5} for t in tickers} # For Momentum Delta
         
         # ---------------------------------------------------
         # THE TIME LOOP
@@ -109,12 +122,23 @@ def run_backtest(job_id: int):
                             # 2:1 split means ratio 2.0. We multiply shares.
                             new_qty = int(qty * event['ratio'])
                             holdings[ticker] = new_qty
+                            # Adjust cost basis (split reduces cost per share)
+                            cost_basis[ticker] = cost_basis[ticker] / event['ratio']
+                            # If stock splits 2:1, price drops 50%. 
+                            # We must drop the "Peak" 50% too, or Trailing Stop fires instantly.
+                            highest_price_seen[ticker] = highest_price_seen[ticker] / event['ratio']
 
             # --- PHASE B: TRADING (Market Close) ---
             
             # Calculate Portfolio Value (Cash + Current Stock Value)
             # Needed for Position Sizing
             daily_prices = price_map[current_date]
+
+            # Update Price History for SMA
+            for t, p_data in daily_prices.items():
+                price_history[t].append(float(p_data.close_price))
+
+            # Portfolio Value and Drawdown
             portfolio_value = cash
             for t, qty in holdings.items():
                 if t in daily_prices and qty > 0:
@@ -131,46 +155,154 @@ def run_backtest(job_id: int):
             for rule in strategy.rules:
                 ticker = rule['ticker']
 
-                # Get Settings specific to this stock
-                rule_type = rule.get('type', 'momentum') # Default to momentum
+                # Check Data Availability
+                if ticker not in daily_prices: continue
 
-                # Helper Logic based on THIS rule's type
+                # --- CALCULATE INDICATORS ---
+                # OHLC Data
+                p_data = daily_prices[ticker]
+                open_p = float(p_data.open_price)
+                high_p = float(p_data.high_price)
+                low_p = float(p_data.low_price)
+                close_p = float(p_data.close_price)
+
+                # Hype Smoothing (EMA)
+                raw_scores = score_map.get(current_date, {}).get(ticker)
+                raw_n = float(raw_scores.news_score) if raw_scores and raw_scores.news_score is not None else 0.5
+                raw_r = float(raw_scores.reddit_score) if raw_scores and raw_scores.reddit_score is not None else 0.5
+                daily_mentions = raw_scores.mention_count if raw_scores else 0
+
+                window = rule.get('hype_smoothing_window', 0)
+                if window > 0:
+                    k = 2 / (window + 1)
+                    n_score = (raw_n * k) + (hype_ema_state[ticker]['news'] * (1 - k))
+                    r_score = (raw_r * k) + (hype_ema_state[ticker]['reddit'] * (1 - k))
+                    hype_ema_state[ticker] = {'news': n_score, 'reddit': r_score}
+                else:
+                    n_score = raw_n
+                    r_score = raw_r
+
+                # Sentiment Momentum (Delta)
+                n_delta = n_score - prev_day_scores[ticker]['news']
+                r_delta = r_score - prev_day_scores[ticker]['reddit']
+                prev_day_scores[ticker] = {'news': n_score, 'reddit': r_score}
+
+                # Price SMA
+                sma_days = rule.get('price_sma_days')
+                current_sma = None
+                if sma_days and len(price_history[ticker]) >= sma_days:
+                    window_slice = price_history[ticker][-sma_days:]
+                    current_sma = sum(window_slice) / sma_days
+
+                # --- EXIT RULES (RISK MANAGEMENT) ---
+                # Check these BEFORE sentiment rules. Risk trumps Opportunity.
+                if holdings[ticker] > 0:
+                    # Update Peak for Trailing Stop
+                    if high_p > highest_price_seen[ticker]:
+                        highest_price_seen[ticker] = high_p
+                    
+                    avg_cost = cost_basis[ticker]
+                    
+                    # Calculate potential exits
+                    should_sell_risk = False
+                    sell_reason = ""
+                    execution_price = close_p # Default exit at close
+
+                    # Stop Loss (Intraday Check using Low)
+                    sl = rule.get('stop_loss_pct')
+                    if sl:
+                        stop_price = avg_cost * (1.0 - sl)
+                        if low_p <= stop_price:
+                            should_sell_risk = True
+                            sell_reason = "Stop Loss"
+                            # Simulate getting stopped out. Conservative estimate: 
+                            # If it gapped down below stop, we sell at Open. 
+                            # Otherwise we sell at Stop Price.
+                            execution_price = min(open_p, stop_price)
+
+                    # Take Profit (Intraday Check using High)
+                    tp = rule.get('take_profit_pct')
+                    if tp and not should_sell_risk:
+                        target_price = avg_cost * (1.0 + tp)
+                        if high_p >= target_price:
+                            should_sell_risk = True
+                            sell_reason = "Take Profit"
+                            execution_price = target_price
+
+                    # Trailing Stop (Intraday Check using High/Low)
+                    ts = rule.get('trailing_stop_pct')
+                    if ts and not should_sell_risk:
+                        trail_price = highest_price_seen[ticker] * (1.0 - ts)
+                        if low_p <= trail_price:
+                            should_sell_risk = True
+                            sell_reason = "Trailing Stop"
+                            execution_price = min(open_p, trail_price)
+
+                    if should_sell_risk:
+                        # EXECUTE RISK SELL
+                        qty = holdings[ticker]
+                        revenue = qty * execution_price
+                        profit = revenue - (qty * avg_cost)
+                        
+                        total_sell_trades += 1
+                        if profit > 0: winning_trades += 1
+
+                        cash += revenue
+                        holdings[ticker] = 0
+                        cost_basis[ticker] = 0.0
+                        highest_price_seen[ticker] = 0.0
+                        last_sell_date[ticker] = current_date # Mark cooldown trigger
+                        
+                        trades.append({
+                            "date": current_date, "action": models.TradeAction.SELL, "ticker": ticker,
+                            "price": execution_price, "quantity": qty, "profit": profit
+                        })
+                        continue # Done with ticker for today
+
+                # --- ENTRY / SIGNAL RULES ---
+
+                # Check Logic (Momentum vs Reversion)
+                rule_type = rule.get('type', 'momentum')
+
                 def is_buy_signal(score, threshold):
                     if threshold is None: return False
-                    if rule_type == 'momentum':
-                        return score >= threshold
-                    else: # reversion
-                        return score <= threshold
+                    return score >= threshold if rule_type == 'momentum' else score <= threshold
 
                 def is_sell_signal(score, threshold):
                     if threshold is None: return False
-                    if rule_type == 'momentum':
-                        return score <= threshold
-                    else: # reversion
-                        return score >= threshold
+                    return score <= threshold if rule_type == 'momentum' else score >= threshold
                 
-                # Check Data Availability
-                if ticker not in daily_prices: continue
-                price_data = daily_prices[ticker]
-                close_p = float(price_data.close_price)
+                # --- FILTERS (Must Pass All) ---
                 
-                # Get Scores (Default to 0.5 if missing)
-                scores = score_map.get(current_date, {}).get(ticker)
-                n_score = float(scores.news_score) if scores and scores.news_score is not None else 0.5
-                r_score = float(scores.reddit_score) if scores and scores.reddit_score is not None else 0.5
+                # Filter 1: Cooldown
+                cooldown = rule.get('cooldown_days', 0)
+                if last_sell_date[ticker]:
+                    days_since = (current_date - last_sell_date[ticker]).days
+                    if days_since < cooldown:
+                        continue 
 
-                # Check Logic Signals
+                # Filter 2: Min Mentions
+                if daily_mentions < rule.get('min_mentions', 0):
+                    continue
+
+                # Filter 3: SMA Trend
+                # Buy only if Price > SMA (Bullish Trend)
+                if current_sma and close_p < current_sma:
+                    continue
+
+                # Filter 4: Sentiment Momentum
+                n_mom_min = rule.get('news_hype_delta_min')
+                if n_mom_min and abs(n_delta) < n_mom_min: continue
+
+                r_mom_min = rule.get('reddit_hype_delta_min')
+                if r_mom_min and abs(r_delta) < r_mom_min: continue
                 
-                # --- SELL LOGIC (Priority) ---
-                # Check News Sell
-                ns_thresh = rule.get('news_sell_threshold')
-                news_sell = is_sell_signal(n_score, ns_thresh)
+                # --- SIGNALS ---
+                n_sell = is_sell_signal(n_score, rule.get('news_sell_threshold'))
+                r_sell = is_sell_signal(r_score, rule.get('reddit_sell_threshold'))
+                should_sell_signal = (n_sell or r_sell)
                 
-                # Check Reddit Sell
-                rs_thresh = rule.get('reddit_sell_threshold')
-                reddit_sell = is_sell_signal(r_score, rs_thresh)
-                
-                if (news_sell or reddit_sell) and holdings[ticker] > 0:
+                if should_sell_signal and holdings[ticker] > 0:
                     # EXECUTE SELL
                     qty = holdings[ticker]
                     revenue = qty * close_p
@@ -188,6 +320,8 @@ def run_backtest(job_id: int):
                     cash += revenue
                     holdings[ticker] = 0
                     cost_basis[ticker] = 0.0 # Reset cost basis
+                    highest_price_seen[ticker] = 0.0
+                    last_sell_date[ticker] = current_date # Triggers cooldown
                     
                     trades.append({
                         "date": current_date, "action": models.TradeAction.SELL, "ticker": ticker,
@@ -195,19 +329,10 @@ def run_backtest(job_id: int):
                     })
                     continue # Done with this ticker
 
-                # --- BUY LOGIC ---
-                # Only buy if NOT selling
-                
-                # Check News Buy
-                nb_thresh = rule.get('news_buy_threshold')
-                news_buy = is_buy_signal(n_score, nb_thresh)
-                
-                # Check Reddit Buy
-                rb_thresh = rule.get('reddit_buy_threshold')
-                reddit_buy = is_buy_signal(r_score, rb_thresh)
-                
-                # ENTRY: If ANY signal says buy (and the other isn't vetoing via logic above)
-                should_buy = (news_buy or reddit_buy)
+                # SIGNAL BUY
+                n_buy = is_buy_signal(n_score, rule.get('news_buy_threshold'))
+                r_buy = is_buy_signal(r_score, rule.get('reddit_buy_threshold'))
+                should_buy = (n_buy or r_buy)
                 
                 if should_buy:
                     # RISK MANAGEMENT: Position Sizing
@@ -239,8 +364,11 @@ def run_backtest(job_id: int):
                             old_total_cost = old_qty * cost_basis[ticker]
                             new_total_cost = old_total_cost + cost
                             new_qty = old_qty + buy_qty
-                            
                             cost_basis[ticker] = new_total_cost / new_qty # Update average cost
+
+                            # Initialize Peak for Trailing Stop
+                            if close_p > highest_price_seen[ticker]:
+                                highest_price_seen[ticker] = close_p
 
                             cash -= cost
                             holdings[ticker] += buy_qty

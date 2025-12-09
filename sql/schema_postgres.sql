@@ -128,6 +128,7 @@ CREATE TABLE daily_sentiment_aggregates (
     date DATE NOT NULL,
     news_score NUMERIC(5, 4),   -- 0.0000 to 1.0000
     reddit_score NUMERIC(5, 4), -- 0.0000 to 1.0000
+    mention_count INT DEFAULT 0,
     PRIMARY KEY (ticker, date)
 );
 
