@@ -28,9 +28,9 @@ services:
       - ./data:/app/data
     ports:
       - "8000:8000"
+    env_file:
+      - .env  # This loads all variables from the .env file in the root
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/sentiment_db
-      REDIS_URL: redis://redis:6379/0
       RUN_DB_INIT: "true"
     depends_on:
       - db

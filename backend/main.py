@@ -9,11 +9,14 @@ import models, schemas, database
 from jose import JWTError, jwt
 from fastapi.middleware.cors import CORSMiddleware
 from backtest_engine import run_backtest
+import os
 
 # --- CONFIG ---
-SECRET_KEY = "CHANGE_THIS_TO_A_RANDOM_SECRET_STRING"
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("No SECRET_KEY set for FastAPI application")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440  # 24 hours
 
 # --- SETUP ---
 #models.Base.metadata.create_all(bind=database.engine)
