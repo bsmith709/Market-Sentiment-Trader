@@ -7,8 +7,14 @@ from io import StringIO
 # ==========================================
 # CONFIGURATION
 # ==========================================
-DATABASE_URL = "postgresql://postgres@localhost/sentiment_db"
-DATA_DIR = "../data"
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://postgres:password@localhost/sentiment_db"
+)
+# Get the directory where THIS script is located (/app/src)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Go up one level to find data (/app/src/../data -> /app/data)
+DATA_DIR = os.path.join(BASE_DIR, "..", "data")
 
 # File mappings
 STOCKS_FILE = "clean_stock_prices_2021.csv" # We extract unique tickers from here

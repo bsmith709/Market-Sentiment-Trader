@@ -115,7 +115,7 @@ class NewsSentiment(Base):
     mention_id = Column(Integer, primary_key=True, index=True)
     ticker = Column(String, ForeignKey("stocks.ticker"), nullable=False)
     article_id = Column(Integer, ForeignKey("news_articles.article_id"), nullable=False)
-    sentiment_label = Column(Enum(SentimentType))
+    sentiment_label = Column(Enum(SentimentType, name="sentiment_type"))
     confidence_score = Column(Numeric(5, 4))
 
     stock = relationship("Stock", back_populates="news_mentions")
@@ -127,7 +127,7 @@ class RedditSentiment(Base):
     mention_id = Column(Integer, primary_key=True, index=True)
     ticker = Column(String, ForeignKey("stocks.ticker"), nullable=False)
     post_id = Column(String, ForeignKey("reddit_posts.post_id"), nullable=False)
-    sentiment_label = Column(Enum(SentimentType))
+    sentiment_label = Column(Enum(SentimentType, name="sentiment_type"))
     confidence_score = Column(Numeric(5, 4))
 
     stock = relationship("Stock", back_populates="reddit_mentions")

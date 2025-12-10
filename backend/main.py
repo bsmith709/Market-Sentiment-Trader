@@ -16,7 +16,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # --- SETUP ---
-models.Base.metadata.create_all(bind=database.engine)
+#models.Base.metadata.create_all(bind=database.engine)
 app = FastAPI()
 # Allow Swagger (and eventually SvelteKit) to talk to backend
 app.add_middleware(
@@ -183,7 +183,10 @@ def get_stock_detail(ticker: str, db: Session = Depends(database.get_db)):
     # Initialize with Prices
     for p in prices:
         history_map[p.date] = {
+            "open_price": p.open_price,
             "close_price": p.close_price,
+            "high_price": p.high_price,
+            "low_price": p.low_price,
             "daily_volume": p.volume,
             "news_hype_score": 0.5,   # Default
             "reddit_hype_score": 0.5  # Default

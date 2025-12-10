@@ -10,19 +10,34 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# We ADD 'netcat-openbsd' to check if the DB is ready
+RUN apt-get update && apt-get install -y \
+    gcc \
+    libpq-dev \
+    netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy requirements first (to cache dependencies)
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the backend code into the container
-# We copy it into /app/backend so imports work as expected
+# Copy the entrypoint script
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+# Copy backend code
 COPY backend/ ./backend/
+# Copy src code (data loader)
+COPY src/ ./src/
+# Copy data (csv files)
+COPY data/ ./data/
 
-# Set Python path so it can find the modules
-ENV PYTHONPATH=/app/backend
+ENV PYTHONPATH=/app:/app/backend
 
-# The 'command' in docker-compose.yml will override this, 
-# but this is a good default.
+# Set the ENTRYPOINT to our script
+ENTRYPOINT ["./entrypoint.sh"]
+
+# The CMD becomes the arguments passed to 'exec "$@"' at the end of the script
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
