@@ -3,11 +3,13 @@ from sqlalchemy import func
 from datetime import datetime
 import models
 from database import SessionLocal
+from celery_app import celery
 import traceback 
 
 # --- CONFIG ---
 INITIAL_CASH = 100000.00
 
+@celery.task(name="run_backtest_task")
 def run_backtest(job_id: int):
     """
     Production-Grade Backtest Engine.

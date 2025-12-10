@@ -1,10 +1,20 @@
-import os
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+import os
 
+# PRIORITY: Look for the env var 'DATABASE_URL' first.
+# If not found, default to localhost (for when you run scripts on your Mac).
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://user:password@localhost/sentiment_db"
+)
 
-DATABASE_URL = "postgresql://postgres@localhost/sentiment_db"
-engine = create_engine(DATABASE_URL)
+# Fix for Heroku/Render URLs that start with "postgres://" (SQLAlchemy needs "postgresql://")
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
 # Create the SessionLocal class used to query DB
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

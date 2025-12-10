@@ -8,7 +8,7 @@ import bcrypt
 import models, schemas, database
 from jose import JWTError, jwt
 from fastapi.middleware.cors import CORSMiddleware
-import backtest_engine
+from backtest_engine import run_backtest
 
 # --- CONFIG ---
 SECRET_KEY = "CHANGE_THIS_TO_A_RANDOM_SECRET_STRING"
@@ -317,7 +317,7 @@ def submit_backtest(
     db.refresh(new_job)
 
     # Hand off to background task
-    background_tasks.add_task(backtest_engine.run_backtest, new_job.job_id)
+    run_backtest.delay(new_job.job_id)
 
     return new_job
 
