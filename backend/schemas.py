@@ -164,6 +164,42 @@ class StrategyRule(BaseModel):
         if v is not None and not (0.0 <= v <= 1.0):
             raise ValueError('Thresholds must be between 0.0 and 1.0')
         return v
+    
+    # Validate Risk Percentages (Must be > 0)
+    @field_validator('stop_loss_pct', 'take_profit_pct', 'trailing_stop_pct')
+    @classmethod
+    def check_positive_floats(cls, v: Optional[float], info):
+        if v is not None:
+            if v <= 0:
+                raise ValueError(f"{info.field_name} must be positive (e.g. 0.10 for 10%)")
+            # Logic Check: Trailing Stop shouldn't be > 100% (Math breaks)
+            if info.field_name in ['stop_loss_pct', 'trailing_stop_pct'] and v >= 1.0:
+                 raise ValueError(f"{info.field_name} must be less than 1.0 (100%)")
+        return v
+
+    # Validate Signal Integers (Must be >= 0)
+    @field_validator('cooldown_days', 'min_mentions', 'hype_smoothing_window')
+    @classmethod
+    def check_non_negative_ints(cls, v: int, info):
+        if v < 0:
+            raise ValueError(f"{info.field_name} cannot be negative")
+        return v
+
+    # Validate SMA Days (Must be > 1 to be a "moving average")
+    @field_validator('price_sma_days')
+    @classmethod
+    def check_sma_days(cls, v: Optional[int]):
+        if v is not None and v < 2:
+            raise ValueError("SMA days must be at least 2")
+        return v
+
+    # Validate Deltas (Must be > 0)
+    @field_validator('news_hype_delta_min', 'reddit_hype_delta_min')
+    @classmethod
+    def check_deltas(cls, v: Optional[float], info):
+        if v is not None and v < 0:
+            raise ValueError(f"{info.field_name} must be positive")
+        return v
 
     # Validator: Logic Check (Prevent "Do Nothing" rules)
     @model_validator(mode='after')
