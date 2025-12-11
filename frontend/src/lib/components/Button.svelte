@@ -39,8 +39,8 @@
 
   // Classes for different visual styles (variants).
   const variantClasses: Record<Variant, string> = {
-    primary: 'text-main-900 bg-blue-450 active:bg-blue-500 hover:bg-blue-700',
-    secondary: 'text-secondary-900',
+    primary: 'text-neutral-100 bg-gradient-main bg-[length:100%_300%] bg-no-repeat bg-center active:bg-bottom hover:bg-top',
+    secondary: 'text-neutral-100 bg-gradient-secondary bg-[length:100%_300%] bg-no-repeat bg-center active:bg-bottom hover:bg-top',
     outline: 'border border-neutral-400 text-neutral-400 bg-transparent hover:bg-neutral-400 hover:border-neutral-400 hover:text-neutral-900 active:bg-neutral-500 active:border-neutral-500 active:text-neutral-900',
     ghost: 'text-neutral-400 hover:bg-neutral-700 hover:text-neutral-100 active:bg-neutral-800 active:text-neutral-500',
     link: 'text-neutral-100 underline-offset-4 hover:text-main-300 hover:underline gap-0',

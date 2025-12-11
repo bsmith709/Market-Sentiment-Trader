@@ -1,0 +1,166 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/container-queries';
+/*@plugin '@tailwindcss/aspect-ratio';*/
+
+
+@theme {
+  --color-main-900: hsl(261 60% 22%);
+  --color-main-800: hsl(258 65% 28%);
+  --color-main-700: hsl(255 70% 35%);
+  --color-main-600: hsl(252 75% 45%);
+  --color-main-500: hsl(249 80% 55%);
+  --color-main-400: hsl(245 90% 64%);
+  --color-main-300: hsl(241 95% 72%);
+  --color-main-200: hsl(237 98% 82%);
+  --color-main-100: hsl(232 100% 90%);
+
+  --color-secondary-900: hsl(230 50% 30%);
+  --color-secondary-800: hsl(227 60% 35%);
+  --color-secondary-700: hsl(225 70% 40%);
+  --color-secondary-600: hsl(222 80% 45%);
+  --color-secondary-500: hsl(218 85% 50%);
+  --color-secondary-400: hsl(212 90% 55%);
+  --color-secondary-300: hsl(208 95% 60%);
+  --color-secondary-200: hsl(205 100% 75%);
+  --color-secondary-100: hsl(200 100% 85%);
+
+  --color-tertiary-900: hsl(300 40% 30%);
+  --color-tertiary-800: hsl(302 48% 35%);
+  --color-tertiary-700: hsl(305 55% 40%);
+  --color-tertiary-600: hsl(307 55% 55%);
+  --color-tertiary-500: hsl(310, 70%, 65%);
+  --color-tertiary-400: hsl(315 80% 75%);
+  --color-tertiary-300: hsl(318 100% 85%);
+  --color-tertiary-200: hsl(320 100% 90%);
+  --color-tertiary-100: hsl(325 100% 95%);
+
+  --color-semantic-green-900: hsl(120 40% 20%);
+  --color-semantic-green-800: hsl(128 48% 25%);
+  --color-semantic-green-700: hsl(135 55% 30%);
+  --color-semantic-green-600: hsl(140 60% 38%);
+  --color-semantic-green-500: hsl(145 65% 45%);
+  --color-semantic-green-400: hsl(145 70% 53%);
+  --color-semantic-green-300: hsl(145 80% 60%);
+  --color-semantic-green-200: hsl(152 95% 75%);
+  --color-semantic-green-100: hsl(155 100% 88%);
+
+  --color-semantic-yellow-900: hsl(35 60% 25%);
+  --color-semantic-yellow-800: hsl(37 69% 35%);
+  --color-semantic-yellow-700: hsl(41 78% 45%);
+  --color-semantic-yellow-600: hsl(45 90% 55%);
+  --color-semantic-yellow-500: hsl(48 95% 60%);
+  --color-semantic-yellow-400: hsl(50 100% 65%);
+  --color-semantic-yellow-300: hsl(52 100% 70%);
+  --color-semantic-yellow-200: hsl(55 100% 80%);
+  --color-semantic-yellow-100: hsl(60 100% 90%);
+
+  --color-semantic-red-900: hsl(0 40% 25%);
+  --color-semantic-red-800: hsl(0 50% 33%);
+  --color-semantic-red-700: hsl(0 60% 40%);
+  --color-semantic-red-600: hsl(0 70% 45%);
+  --color-semantic-red-500: hsl(0 80% 55%);
+  --color-semantic-red-400: hsl(0 90% 62%);
+  --color-semantic-red-300: hsl(355 95% 68%);
+  --color-semantic-red-200: hsl(355 100% 80%);
+  --color-semantic-red-100: hsl(355 100% 92%);
+
+  --color-neutral-900: hsl(30 5% 15%); /* For darkest text */
+  --color-neutral-800: hsl(30 5% 22%);
+  --color-neutral-700: hsl(30 6% 31%);  /* For secondary text */
+  --color-neutral-600: hsl(30 7% 42%);
+  --color-neutral-500: hsl(30 8% 54%);  /* For borders/dividers */
+  --color-neutral-400: hsl(30 9% 69%);
+  --color-neutral-300: hsl(30 10% 80%);
+  --color-neutral-200: hsl(30 11% 86%); /* For subtle panels */
+  --color-neutral-100: hsl(30 12% 95%); /* For main background */
+
+  --font-spectral: 'Spectral', serif;
+
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-base: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+  --font-size-4xl: 36px;
+  --font-size-5xl: 48px;
+  --font-size-6xl: 60px;
+  --font-size-7xl: 72px;
+
+  --line-height-tight: 1.25;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.625;
+
+  --spacing-px: 1px;
+  --spacing-0: 0;
+  --spacing-1: 4px;   /* 16 * 0.25 */
+  --spacing-2: 8px;   /* 16 * 0.5 */
+  --spacing-3: 12px;  /* 16 * 0.75 */
+  --spacing-4: 16px;  /* 16 * 1 (Base) */
+  --spacing-5: 24px;  /* 16 * 1.5 */
+  --spacing-6: 32px;  /* 16 * 2 */
+  --spacing-7: 48px;  /* 16 * 3 */
+  --spacing-8: 64px;  /* 16 * 4 */
+  --spacing-9: 96px;  /* 16 * 6 */
+  --spacing-10: 128px; /* 16 * 8 */
+  --spacing-11: 192px; /* 16 * 12 */
+  --spacing-12: 256px; /* 16 * 16 */
+  --spacing-13: 384px; /* 16 * 24 */
+  --spacing-14: 512px; /* 16 * 32 */
+  --spacing-15: 640px; /* 16 * 40 */
+  --spacing-16: 768px; /* 16 * 48 */
+
+  --border-width-DEFAULT: 1px;
+  --border-width-0: 0px;
+  --border-width-2: 2px;
+  --border-width-4: 4px;
+  --border-width-8: 8px;
+
+  --background-image-gradient-main: linear-gradient(135deg, var(--color-main-200) 0%, var(--color-main-300) 50%, var(--color-main-400) 100%);
+  --background-image-gradient-secondary: linear-gradient(135deg, var(--color-secondary-200) 0%, var(--color-secondary-300) 50%, var(--color-secondary-400) 100%);
+}
+
+@property --gradient-middle-pos {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 40%;
+}
+
+@layer utilities {
+  .text-gradient-main {
+    @apply bg-gradient-main text-transparent bg-clip-text pb-2;
+  }
+  .text-gradient-secondary {
+    @apply bg-gradient-secondary text-transparent bg-clip-text pb-2;
+  }
+
+    /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide{
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Hide scrollbar for IE, Edge and Firefox */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+
+  html{
+    color-scheme: dark;
+    scroll-behavior: smooth;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .prose h2, .prose h3 {
+    scroll-margin-top: var(--spacing-9);
+  }
+
+  .prose img {
+    @apply rounded-lg border-4 border-neutral-300 shadow-lg;
+  }
+}

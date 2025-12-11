@@ -1,5 +1,5 @@
 <script lang="ts">
-	import "./layout.css"
+	import "../app.css"
     import { auth, login, logout } from '$lib/stores/auth';
     import api from '$lib/api';
     import { goto } from '$app/navigation';
@@ -75,7 +75,7 @@
 <div class="min-h-screen bg-gray-50 flex flex-col">
     <header class="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-200">
         
-        <div class="max-w-4xl mx-auto px-4 h-14 flex justify-between items-center">
+        <div class="max-w-4xl mx-auto p-4 flex justify-between items-center">
             
             <div class="relative w-1/3 flex justify-start">
                 {#if $auth.isAuthenticated}
@@ -83,7 +83,7 @@
                         Hi, {$auth.username}
                     </div>
                 {:else}
-					<Button variant="primary" size="sm">Login/Register</Button>
+					<Button variant="primary" size="custom" class="rounded-md px-2 py-1 text-xs" onclick={toggleDropdown}>Login</Button>
                 {/if}
 
                 {#if showLoginDropdown}
@@ -114,13 +114,13 @@
             </div>
             
             <div class="w-1/3 flex justify-center">
-                <a href="/" class="text-xl font-bold text-blue-600 tracking-tight">
+                <a href="/" class="text-xl font-bold text-main-500 tracking-tight">
                     Sentiment<span class="text-gray-900">Trader</span>
                 </a>
             </div>
 
             <div class="w-1/3 flex justify-end">
-                <button on:click={toggleMobileNav} class="p-1 text-gray-600 hover:text-blue-600 focus:outline-none">
+                <button aria-label="Navigation" on:click={toggleMobileNav} class="p-1 text-gray-600 hover:text-blue-600 focus:outline-none">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path>
                     </svg>
@@ -166,10 +166,6 @@
             </nav>
         </div>
     </div>
-    
-    {#if showMobileNav}
-        <div on:click={toggleMobileNav} class="fixed inset-0 bg-black opacity-30 z-30"></div>
-    {/if}
 
     <main class="flex-grow">
         <slot />
