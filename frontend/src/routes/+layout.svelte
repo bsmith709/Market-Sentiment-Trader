@@ -5,15 +5,11 @@
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
 	import Button from "$lib/components/Button.svelte";
+    import LoginDropdown from "$lib/components/LoginDropdown.svelte";
 
     // UI State
     let showLoginDropdown = false;
     let showMobileNav = false; // State for the hamburger menu
-
-    // Login Form State
-    let username = "";
-    let password = "";
-    let errorMessage = "";
 
     // Close dropdowns when clicking outside
     onMount(() => {
@@ -42,28 +38,6 @@
         showMobileNav = !showMobileNav;
     }
 
-    // Handle Login
-    async function handleLogin() {
-        try {
-            // Note: Axios uses FormData() for x-www-form-urlencoded
-            const formData = new FormData();
-            formData.append('username', username);
-            formData.append('password', password);
-
-            const res = await api.post('/token', formData);
-            
-            // Save to store
-            login(res.data.access_token, username);
-            
-            // Reset UI
-            showLoginDropdown = false;
-            errorMessage = "";
-            password = "";
-        } catch (err) {
-            errorMessage = "Invalid credentials";
-        }
-    }
-
     function handleLogout() {
         logout();
         showLoginDropdown = false;
@@ -87,29 +61,7 @@
                 {/if}
 
                 {#if showLoginDropdown}
-                    <div id="login-dropdown" class="absolute left-0 mt-8 w-64 bg-white border border-gray-200 rounded-lg shadow-xl p-4 z-50">
-                        <h3 class="text-sm font-bold text-gray-700 mb-3">Welcome Back</h3>
-                        
-                        {#if errorMessage}
-                            <div class="text-xs text-red-600 mb-2">{errorMessage}</div>
-                        {/if}
-
-                        <form on:submit|preventDefault={handleLogin} class="space-y-3">
-                            <input type="text" bind:value={username} placeholder="Username" required
-                                class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                            <input type="password" bind:value={password} placeholder="Password" required
-                                class="w-full text-sm border-gray-300 rounded-md shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                            />
-                            <button type="submit" class="w-full bg-blue-600 text-white py-1.5 rounded-md text-sm font-medium hover:bg-blue-700 transition">
-                                Sign In
-                            </button>
-                        </form>
-                        
-                        <div class="mt-3 pt-2 border-t border-gray-100 text-center">
-                            <a href="/register" on:click={() => showLoginDropdown = false} class="text-xs text-gray-500 hover:text-blue-600">Need an account? Register</a>
-                        </div>
-                    </div>
+                    <LoginDropdown onclose={() => showLoginDropdown = false} />
                 {/if}
             </div>
             

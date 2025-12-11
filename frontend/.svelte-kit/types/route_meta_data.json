@@ -1,4 +1,7 @@
 {
 	"/": [],
-	"/design-system": []
+	"/design-system": [],
+	"/strategies": [
+		"src/routes/strategies/+page.ts"
+	]
 }
