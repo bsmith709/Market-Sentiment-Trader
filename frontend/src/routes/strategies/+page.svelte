@@ -1,6 +1,7 @@
 <script lang="ts">
     import StrategyCard from '$lib/components/StrategyCard.svelte';
     import Button from '$lib/components/Button.svelte';
+    import CreateStrategyModal from '$lib/components/CreateStrategyModal.svelte';
     import api from '$lib/api';
     import { goto } from '$app/navigation';
 
@@ -9,6 +10,8 @@
     
     // Create a local state copy so we can remove items instantly on delete
     let strategies = $state(data.strategies || []);
+
+    let showCreateModal = $state(false); // <--- Modal State
 
     // --- ACTIONS ---
 
@@ -40,6 +43,11 @@
             console.error(err);
         }
     }
+
+    function handleStrategyCreated(newStrategy: any) {
+        // Add to the top of the list
+        strategies = [newStrategy, ...strategies];
+    }
 </script>
 
 <div class="max-w-7xl mx-auto px-4 py-4">
@@ -52,11 +60,19 @@
         
         <Button 
             variant="primary" size="sm"
-            onclick={() => goto('/strategies/create')}
+            onclick={() => showCreateModal = true}
         >
             + Create Strategy
         </Button>
+        
     </div>
+
+    {#if showCreateModal}
+        <CreateStrategyModal 
+            onclose={() => showCreateModal = false} 
+            oncreated={handleStrategyCreated} 
+        />
+    {/if}
 
     {#if strategies.length === 0}
         <div class="text-center py-20 bg-white rounded-lg border border-dashed border-gray-300">

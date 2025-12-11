@@ -1,5 +1,8 @@
 {
 	"/": [],
+	"/backtests": [
+		"src/routes/backtests/+page.ts"
+	],
 	"/design-system": [],
 	"/strategies": [
 		"src/routes/strategies/+page.ts"

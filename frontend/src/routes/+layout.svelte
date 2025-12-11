@@ -111,6 +111,13 @@
                     >
                         Strategies
                     </a>
+                     <a 
+                        href="/backtests" 
+                        on:click={toggleMobileNav} 
+                        class="block text-gray-600 hover:text-blue-600 font-medium text-base"
+                    >
+                        Backtests
+                    </a>
                     <button on:click={handleLogout} class="block w-full text-left text-red-500 hover:text-red-700 font-medium text-base mt-6 pt-4 border-t border-gray-100">
                         Logout
                     </button>
