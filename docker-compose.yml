@@ -24,7 +24,7 @@ services:
     build: .
     volumes:
       - ./backend:/app/backend  # Live code reloading
-      - ./src:/app/src
+      - ./scripts:/app/scripts
       - ./data:/app/data
     ports:
       - "8000:8000"

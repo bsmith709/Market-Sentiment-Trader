@@ -29,8 +29,8 @@ RUN chmod +x entrypoint.sh
 
 # Copy backend code
 COPY backend/ ./backend/
-# Copy src code (data loader)
-COPY src/ ./src/
+# Copy scripts code (data loader)
+COPY scripts/ ./scripts/
 # Copy data (csv files)
 COPY data/ ./data/
 

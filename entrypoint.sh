@@ -20,10 +20,10 @@ wait_for_postgres
 # --- CONDITIONAL INIT ---
 if [ "$RUN_DB_INIT" = "true" ]; then
     echo "--- Initializing Database Tables ---"
-    python src/init_db.py
+    python scripts/init_db.py
 
     echo "--- Running Data Loader ---"
-    python src/load_data.py
+    python scripts/load_data.py
 
     echo "--- Running Score Population ---"
     python backend/populate_daily_scores.py
