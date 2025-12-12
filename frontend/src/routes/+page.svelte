@@ -83,7 +83,7 @@
                 </div>
             </div>
         {:else}
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {#each stocks as stock (stock.ticker)}
                     <StockCard {stock} />
                 {/each}
