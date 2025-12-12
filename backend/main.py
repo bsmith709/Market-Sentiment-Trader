@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload, aliased
+from sqlalchemy import func, desc
 from datetime import timedelta, date, datetime
 from typing import List
 import bcrypt
@@ -365,16 +365,29 @@ def get_leaderboard(db: Session = Depends(database.get_db)):
     Returns top performing strategies. 
     Public endpoint (no login required).
     """
-    # Join with User and Strategy to get names
+# 1. Create a subquery to rank entries within each strategy
+    # Partition by strategy_id and order by total_return_pct descending
+    subquery = db.query(
+        models.LeaderboardEntry,
+        func.row_number().over(
+            partition_by=models.LeaderboardEntry.strategy_id,
+            order_by=desc(models.LeaderboardEntry.total_return_pct)
+        ).label("rn")
+    ).subquery()
+
+    # Alias the subquery so we can join with it
+    le_alias = aliased(models.LeaderboardEntry, subquery)
+
+    # 2. Main query: Select from the subquery where rank (rn) is 1
     entries = db.query(
-        models.LeaderboardEntry.rank_date,
-        models.LeaderboardEntry.total_return_pct,
+        le_alias.rank_date,
+        le_alias.total_return_pct,
         models.User.username,
         models.Strategy.name.label("strategy_name")
-    ).select_from(models.LeaderboardEntry)\
-     .join(models.User, models.LeaderboardEntry.user_id == models.User.user_id)\
-     .join(models.Strategy, models.LeaderboardEntry.strategy_id == models.Strategy.strategy_id)\
-     .order_by(models.LeaderboardEntry.total_return_pct.desc())\
+    ).join(models.User, le_alias.user_id == models.User.user_id)\
+     .join(models.Strategy, le_alias.strategy_id == models.Strategy.strategy_id)\
+     .filter(subquery.c.rn == 1)\
+     .order_by(le_alias.total_return_pct.desc())\
      .limit(10)\
      .all()
      

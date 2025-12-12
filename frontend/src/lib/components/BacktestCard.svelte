@@ -13,7 +13,7 @@
 
     // Helper: Format Percentages
     function formatPct(val: number) {
-        return (val * 100).toFixed(2) + '%';
+        return val.toFixed(2) + '%';
     }
 
     // Helper: Color logic for returns

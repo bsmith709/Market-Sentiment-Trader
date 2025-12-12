@@ -27,7 +27,7 @@ export {};
 
 declare module "$app/types" {
 	export interface AppTypes {
-		RouteId(): "/" | "/backtests" | "/design-system" | "/strategies";
+		RouteId(): "/" | "/backtests" | "/design-system" | "/leaderboard" | "/strategies";
 		RouteParams(): {
 			
 		};
@@ -35,9 +35,10 @@ declare module "$app/types" {
 			"/": Record<string, never>;
 			"/backtests": Record<string, never>;
 			"/design-system": Record<string, never>;
+			"/leaderboard": Record<string, never>;
 			"/strategies": Record<string, never>
 		};
-		Pathname(): "/" | "/backtests" | "/backtests/" | "/design-system" | "/design-system/" | "/strategies" | "/strategies/";
+		Pathname(): "/" | "/backtests" | "/backtests/" | "/design-system" | "/design-system/" | "/leaderboard" | "/leaderboard/" | "/strategies" | "/strategies/";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
 		Asset(): "/robots.txt" | string & {};
 	}

@@ -302,8 +302,8 @@
         </div>
 
         <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-            <Button type="button" variant="ghost" onclick={onclose}>Cancel</Button>
-            <Button type="submit" form="strategy-form" variant="primary" disabled={isLoading}>
+            <Button type="button" size="sm" variant="ghost" onclick={onclose}>Cancel</Button>
+            <Button type="submit" size="sm" form="strategy-form" variant="primary" disabled={isLoading}>
                 {isLoading ? 'Creating...' : 'Create Strategy'}
             </Button>
         </div>

@@ -24,15 +24,15 @@
     }
 </script>
 
-<div class="max-w-7xl mx-auto px-4 py-8">
+<div class="max-w-7xl mx-auto px-4 py-4">
     
-    <div class="flex justify-between items-center mb-8">
+    <div class="flex justify-between items-center mb-4">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Backtest Results</h1>
+            <h1 class="text-2xl font-bold text-neutral-900">Backtest Results</h1>
             <p class="text-gray-500 text-sm mt-1">History of your strategy simulations.</p>
         </div>
         
-        <Button variant="outline" size="sm" onclick={refreshJobs} disabled={isRefreshing}>
+        <Button variant="primary" size="sm" onclick={refreshJobs} disabled={isRefreshing}>
             {#if isRefreshing}
                 Refreshing...
             {:else}

@@ -66,7 +66,7 @@
 
         <div class="mt-5 flex gap-3">
             <Button 
-                variant="primary" 
+                variant="secondary" 
                 size="sm" 
                 class="flex-1 text-xs py-2 shadow-sm" 
                 onclick={(e: Event) => { e.stopPropagation(); onbacktest(strategy.strategy_id); }}

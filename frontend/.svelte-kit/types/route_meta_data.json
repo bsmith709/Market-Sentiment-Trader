@@ -4,6 +4,9 @@
 		"src/routes/backtests/+page.ts"
 	],
 	"/design-system": [],
+	"/leaderboard": [
+		"src/routes/leaderboard/+page.ts"
+	],
 	"/strategies": [
 		"src/routes/strategies/+page.ts"
 	]
