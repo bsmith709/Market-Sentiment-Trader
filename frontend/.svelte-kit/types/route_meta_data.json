@@ -1,5 +1,7 @@
 {
-	"/": [],
+	"/": [
+		"src/routes/+page.ts"
+	],
 	"/backtests": [
 		"src/routes/backtests/+page.ts"
 	],

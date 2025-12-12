@@ -20,7 +20,7 @@
 
 <div class="max-w-4xl mx-auto px-4 py-4 h-[calc(100vh-80px)] flex flex-col">
     
-    <div class="flex justify-between items-center gap-2 mb-2">
+    <div class="flex justify-between items-center gap-3 mb-2">
         <div>
             <h1 class="text-2xl font-bold text-neutral-900">Top Strategies</h1>
             <p class="text-gray-500 text-sm mt-1">Community rankings based on total return percentage.</p>
@@ -33,14 +33,14 @@
 
     <div class="flex-grow overflow-y-auto scrollbar-hide pb-10">
         {#if entries.length === 0}
-            <div class="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                <div class="mx-auto h-12 w-12 text-gray-300 mb-3">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-12 h-12">
+            <div class="text-center py-9 bg-white rounded-lg border border-dashed border-gray-300 px-2">
+                <div class="text-gray-300 mb-4 flex justify-center">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" class="w-10 h-10">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                 </div>
                 <h3 class="text-lg font-medium text-gray-900">No Ranked Strategies Yet</h3>
-                <p class="text-gray-500 mb-4 text-sm">Run a backtest to see if you can make the leaderboard!</p>
+                <p class="text-gray-500 mb-4">Run a backtest to see if you can make the leaderboard!</p>
                 <a href="/strategies" class="text-blue-600 hover:underline text-sm font-medium">Create Strategy &rarr;</a>
             </div>
         {:else}
