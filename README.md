@@ -1,9 +1,6 @@
 # Market Sentiment Trader https://trader.blakesmithdev.com
 A Full-Stack Sentiment Analysis & Trading Simulation Platform 
 
-## Video
-[![Video of app in use](demo_vid.mov)]
-
 ## 🎯 Goal
 
 The goal of SentimentTrader is to democratize algorithmic trading by allowing users to build, test, and compete with strategies driven by alternative data. Instead of relying solely on technical indicators, users can simulate trading performance based on News Sentiment and Reddit Hype scores derived from historical 2021 data.
